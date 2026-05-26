@@ -85,7 +85,7 @@ The Neon Street scene includes a custom-built neon OpenSea logo as one of the st
 
 | | |
 |---|---|
-| **Live URL** | `https://vibe-o-matic.<your-vercel-domain>` |
+| **Live URL** | https://vibe-o-matic.vercel.app |
 | **Sample GVC token to render** | `5618` |
 | **x402 endpoint (machine-callable)** | `POST /api/vibeify/x402` |
 | **x402 discovery (GET)** | `GET /api/vibeify/x402` → returns price + facilitator URL |
