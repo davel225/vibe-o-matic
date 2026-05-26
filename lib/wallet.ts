@@ -193,8 +193,15 @@ export async function getUsdcBalanceBaseSepolia(
  * Build a fetch that automatically handles 402 Payment Required responses
  * against the connected browser wallet on Base Sepolia. The user signs an
  * EIP-3009 transferWithAuthorization off-chain — no gas, no second tx.
+ *
+ * NOTE: This helper is currently DORMANT. The web UI removed the USDC payment
+ * toggle (web UI is VIBESTR-only by design — see SUBMISSION.md). It's kept
+ * here because the agentic story might bring it back, and because the
+ * server-side x402 route + the headless agent test script remain live.
+ * If you re-enable an in-browser USDC flow, this function is the entry point.
  */
-export async function getX402Fetch(payer: `0x${string}`) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getX402Fetch(payer: `0x${string}`): Promise<any> {
   await ensureBaseSepolia();
   const wallet = createWalletClient({
     account: payer,
@@ -203,5 +210,9 @@ export async function getX402Fetch(payer: `0x${string}`) {
   }).extend(publicActions);
   // Max value the wrapper will auto-pay without prompting: 1 USDC (1_000_000 base units).
   // Our route asks for $0.69 so this gives some headroom for price tweaks.
-  return wrapFetchWithPayment(globalThis.fetch, wallet, 1_000_000n);
+  // The cast bridges a known viem-vs-x402-fetch Signer type lag — harmless at
+  // runtime, the wallet client implements every method wrapFetchWithPayment
+  // actually invokes (signTypedData, signTransaction, etc.).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return wrapFetchWithPayment(globalThis.fetch, wallet as any, 1_000_000n);
 }

@@ -90,7 +90,7 @@ The Neon Street scene includes a custom-built neon OpenSea logo as one of the st
 | **x402 endpoint (machine-callable)** | `POST /api/vibeify/x402` |
 | **x402 discovery (GET)** | `GET /api/vibeify/x402` → returns price + facilitator URL |
 | **Full agent contract docs** | [`X402.md`](./X402.md) |
-| **Source code** | [GitHub repo URL] |
+| **Source code** | https://github.com/davel225/vibe-o-matic |
 | **Test wallet (for judges to fund)** | (none required — judges can use their own; test-mode toggle available) |
 
 ---

@@ -399,10 +399,13 @@ export default function Home() {
         } catch {}
       }
 
-      // Refresh balance after payment lands
-      getVibestrBalance(account)
-        .then(setBalance)
-        .catch(() => {});
+      // Refresh balance after payment lands. Skip in test mode where there's
+      // no connected wallet (account is null and there's no balance to refetch).
+      if (account) {
+        getVibestrBalance(account)
+          .then(setBalance)
+          .catch(() => {});
+      }
     } catch (e) {
       toast.error((e as Error).message || "Generation failed", { id: genToast });
       // Note: payment is already consumed on-chain. Server marks hashes used.
