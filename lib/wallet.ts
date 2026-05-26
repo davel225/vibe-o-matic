@@ -28,12 +28,12 @@ const erc20Abi = parseAbi([
 // VIBESTR (ViBeStrategy) is a non-standard ERC-20: direct transfers from your
 // own wallet require a pre-set "transfer allowance" — a self-imposed spending
 // budget. transfer() reverts with `InsufficientAllowance` if the sender hasn't
-// authorized enough. We handle this transparently in payVibestrSplit() by
-// reading getTransferAllowance() before each render and topping it up if
-// needed. Authorizing once (typically equal to the wallet's full balance) is
-// enough for hundreds of subsequent renders, so steady-state UX is still 1 tx.
+// authorized enough. Both allowance functions operate on msg.sender (no
+// address parameter), so to read an arbitrary user's allowance via eth_call
+// we have to pass `account` in readContract — viem sets that on the `from`
+// field, which the contract sees as msg.sender.
 const vibestrAllowanceAbi = parseAbi([
-  "function getTransferAllowance(address account) view returns (uint256)",
+  "function getTransferAllowance() view returns (uint256)",
   "function increaseTransferAllowance(uint256 amountAllowed)",
 ]);
 
@@ -132,11 +132,14 @@ export async function getVibestrBalance(addr: `0x${string}`): Promise<bigint> {
 export async function getVibestrTransferAllowance(
   addr: `0x${string}`
 ): Promise<bigint> {
+  // getTransferAllowance() uses msg.sender internally — passing `account`
+  // here populates eth_call's `from` field so the contract resolves it
+  // to the user's address rather than the zero address.
   return publicClient.readContract({
     address: VIBESTR_ADDRESS,
     abi: vibestrAllowanceAbi,
     functionName: "getTransferAllowance",
-    args: [addr],
+    account: addr,
   }) as Promise<bigint>;
 }
 
