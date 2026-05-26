@@ -94,11 +94,16 @@ No private keys live in env. The server never holds a wallet — the facilitator
 Before flipping, verify the treasury / split addresses are correct on both networks:
 
 ### VIBESTR (Ethereum mainnet)
-Recipient addresses in `SPLIT_RECIPIENTS`:
-- Treasury: `0xc93c375b022f0e707d211090d904f3266ccfce22` (90%)
-- Burn: `0x000000000000000000000000000000000000dEaD` (10%)
+Recipient address in `SPLIT_RECIPIENTS`:
+- Treasury: `0xc93c375b022f0e707d211090d904f3266ccfce22` (100%)
 
-Same VIBESTR contract on mainnet: `0xd0cC2b0eFb168bFe1f94a948D8df70FA10257196`
+VIBESTR contract on mainnet: `0xd0cC2b0eFb168bFe1f94a948D8df70FA10257196`
+
+VIBESTR is a non-standard ERC-20 — direct transfers require a pre-set
+`increaseTransferAllowance`. `lib/wallet.ts` handles this transparently
+(checks `getTransferAllowance`, prepends an allowance-setup tx sized to the
+caller's full balance if insufficient). First-ever render = 2 sigs; every
+subsequent render = 1 sig. No user action needed.
 
 ### USDC (Base mainnet)
 - Recipient: `USDC_RECIPIENT` in `lib/payment-config.ts` → currently `0xc93c375b022f0e707d211090d904f3266ccfce22`

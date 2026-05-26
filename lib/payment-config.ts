@@ -16,7 +16,7 @@ export const VIBESTR_ADDRESS =
 export const VIBESTR_DECIMALS = 18;
 
 /** Total VIBESTR charged per pull (whole tokens). */
-export const TOTAL_VIBESTR = 200n;
+export const TOTAL_VIBESTR = 99n;
 
 /** Raw on-chain amount = TOTAL_VIBESTR * 10^18. */
 export const TOTAL_VIBESTR_RAW = TOTAL_VIBESTR * 10n ** BigInt(VIBESTR_DECIMALS);
@@ -37,12 +37,7 @@ export const SPLIT_RECIPIENTS: readonly SplitRecipient[] = [
   {
     name: "Treasury",
     address: "0xc93c375b022f0e707d211090d904f3266ccfce22",
-    percent: 90,
-  },
-  {
-    name: "Burn",
-    address: BURN_ADDRESS,
-    percent: 10,
+    percent: 100,
   },
 ] as const;
 

@@ -10,7 +10,7 @@
 
 vibe-o-matic turns any photo into a Good Vibes Club / Vibetown vinyl figurine render in ~40 seconds. We built two completely separate surfaces for two distinct audiences:
 
-- **GVC humans** open the web UI, connect MetaMask, pay 200 VIBESTR on Ethereum mainnet, click *Vibeify*. Every render fuels the GVC token economy (90% treasury, 10% burn).
+- **GVC humans** open the web UI, connect MetaMask, pay 99 VIBESTR on Ethereum mainnet, click *Vibeify*. Every render goes 100% to the GVC treasury.
 - **Autonomous AI agents** hit `POST /api/vibeify/x402` with an image + free-text intent. Our server-side agent picks the scene/action/mood/size, runs the render, and settles a $0.69 USDC payment on Base — all in one HTTP round-trip. No API key, no signup, no human in the loop.
 
 It's a working answer to two questions GVC cares about:
@@ -29,7 +29,9 @@ A judge or GVC holder can:
 3. Pick a scene from the curated catalog (Tropical Beach, Château de GODL, Neon Street with OpenSea signage, Rooftop Sunset, Lagoon Pier, Coastal Drive)
 4. Pick an action emoji (🤝 Friendship, 🎉 Celebrate, 🤳 Group selfie, 🧘 Zen, 💃 Dance) and a mood (😊 😎 🔥 🌙 💪)
 5. Choose orientation (square / portrait / landscape)
-6. Click **Vibeify** → connect MetaMask → sign 200 VIBESTR payment → ~40s later, a Vibetown render of themselves
+6. Click **Vibeify** → connect MetaMask → sign 99 VIBESTR payment → ~40s later, a Vibetown render of themselves
+
+VIBESTR is a non-standard ERC-20 with a built-in self-allowance pattern (direct transfers require pre-authorizing a spending budget). Our wallet helper detects insufficient allowance and prepends a one-time `increaseTransferAllowance` setup tx that authorizes the wallet's full VIBESTR balance — so the first-ever render asks for 2 signatures (setup + transfer) and every subsequent render is a single 1-tx flow.
 
 The web UI is single-purpose: VIBESTR only, manual scene/action/mood selection, no toggles or modes. Clean human flow.
 
@@ -58,7 +60,7 @@ Each render sends 7 reference images to Flux: 1 body T-pose template, 4 curated 
 
 | Audience | Surface | Network | Asset | Price |
 |---|---|---|---|---|
-| **GVC humans** | The web UI (vibe-o-matic.com) | Ethereum mainnet | $VIBESTR ERC-20 | 200 VIBESTR (90/10 treasury/burn) |
+| **GVC humans** | The web UI (vibe-o-matic.com) | Ethereum mainnet | $VIBESTR ERC-20 | 99 VIBESTR → 100% treasury |
 | **Autonomous AI agents** | `POST /api/vibeify/x402` | Base mainnet | USDC | $0.69 |
 
 This split is intentional, not accidental:

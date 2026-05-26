@@ -25,6 +25,18 @@ const erc20Abi = parseAbi([
   "function transfer(address to, uint256 amount) returns (bool)",
 ]);
 
+// VIBESTR (ViBeStrategy) is a non-standard ERC-20: direct transfers from your
+// own wallet require a pre-set "transfer allowance" — a self-imposed spending
+// budget. transfer() reverts with `InsufficientAllowance` if the sender hasn't
+// authorized enough. We handle this transparently in payVibestrSplit() by
+// reading getTransferAllowance() before each render and topping it up if
+// needed. Authorizing once (typically equal to the wallet's full balance) is
+// enough for hundreds of subsequent renders, so steady-state UX is still 1 tx.
+const vibestrAllowanceAbi = parseAbi([
+  "function getTransferAllowance(address account) view returns (uint256)",
+  "function increaseTransferAllowance(uint256 amountAllowed)",
+]);
+
 declare global {
   interface Window {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,6 +124,22 @@ export async function getVibestrBalance(addr: `0x${string}`): Promise<bigint> {
   }) as Promise<bigint>;
 }
 
+/**
+ * Read the caller's current VIBESTR transfer allowance — a self-imposed
+ * spending budget that VIBESTR's non-standard ERC-20 requires before any
+ * direct transfer succeeds. See vibestrAllowanceAbi comment for context.
+ */
+export async function getVibestrTransferAllowance(
+  addr: `0x${string}`
+): Promise<bigint> {
+  return publicClient.readContract({
+    address: VIBESTR_ADDRESS,
+    abi: vibestrAllowanceAbi,
+    functionName: "getTransferAllowance",
+    args: [addr],
+  }) as Promise<bigint>;
+}
+
 export type PayProgress = {
   index: number;
   total: number;
@@ -119,11 +147,19 @@ export type PayProgress = {
 };
 
 /**
- * Pay the VIBESTR split. Sends one ERC-20 transfer per recipient.
+ * Pay the VIBESTR split (currently a single 100%-to-treasury transfer).
+ *
+ * VIBESTR-specific: before the transfer, we check the caller's current
+ * `getTransferAllowance(payer)`. If it's below TOTAL_VIBESTR_RAW, we
+ * prepend an `increaseTransferAllowance(balance)` tx — sized to the
+ * caller's full VIBESTR balance so a one-time setup covers many future
+ * renders. Once set, allowance persists across renders until it's
+ * drained by transfers, at which point we top up again automatically.
  *
  * `existingHashes` lets the caller resume after a mid-flow failure:
- * pass any tx hashes already collected; only the remaining recipients
- * will be charged.
+ * pass any tx hashes already collected; only the remaining steps will
+ * be re-attempted. Note: the allowance tx is NOT counted in the returned
+ * hashes (server verifies transfers only, not allowance setup).
  */
 export async function payVibestrSplit(
   payer: `0x${string}`,
@@ -139,6 +175,35 @@ export async function payVibestrSplit(
   });
 
   const amounts = getSplitAmounts();
+  const totalNeeded = amounts.reduce((s, a) => s + a, 0n);
+
+  // ── Allowance preflight (only if first transfer hasn't gone yet) ──
+  // If we're resuming a partial payment, the allowance already exists by
+  // definition (an earlier transfer succeeded), so we skip this step.
+  if (existingHashes.length === 0) {
+    const current = await getVibestrTransferAllowance(payer);
+    if (current < totalNeeded) {
+      const balance = await getVibestrBalance(payer);
+      // increaseTransferAllowance ADDS to current — passing `balance` puts the
+      // new ceiling at (current + balance), comfortably above any single render
+      // and giving roughly `balance / 99` renders before the next top-up.
+      onProgress({
+        index: 0,
+        total: SPLIT_RECIPIENTS.length + 1,
+        recipient: "Transfer allowance (1-time setup)",
+      });
+      const allowanceHash = await walletClient.writeContract({
+        address: VIBESTR_ADDRESS,
+        abi: vibestrAllowanceAbi,
+        functionName: "increaseTransferAllowance",
+        args: [balance],
+      });
+      // Wait for inclusion so the subsequent transfer sees the updated state.
+      await publicClient.waitForTransactionReceipt({ hash: allowanceHash });
+    }
+  }
+
+  // ── Split transfers ──
   const startIndex = existingHashes.length;
   const collected: Hex[] = [...existingHashes];
 

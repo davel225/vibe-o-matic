@@ -748,10 +748,10 @@ export default function Home() {
                 testMode ? "opacity-30" : "text-white/40"
               }`}
             >
-              <span>Ethereum · 2 sigs · split</span>
+              <span>Ethereum · 1 sig per render</span>
               {SPLIT_RECIPIENTS.map((r, i) => (
                 <span key={r.address} className="flex items-center gap-1">
-                  {i > 0 && <span className="text-white/20">·</span>}
+                  <span className="text-white/20">·</span>
                   <span className="text-white/60">
                     {(Number(TOTAL_VIBESTR) * r.percent) / 100}
                   </span>
