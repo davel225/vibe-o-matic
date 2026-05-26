@@ -1,0 +1,1244 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
+import toast from "react-hot-toast";
+import { formatUnits, type Hex } from "viem";
+import { getStats, type CollectionStats } from "@/lib/gvc-api";
+import {
+  SCENE_PRESETS,
+  ACTION_PRESETS,
+  MOOD_PRESETS,
+} from "@/lib/presets";
+import {
+  CHAIN_ID,
+  SPLIT_RECIPIENTS,
+  TOTAL_VIBESTR,
+  TOTAL_VIBESTR_RAW,
+  VIBESTR_DECIMALS,
+} from "@/lib/payment-config";
+import {
+  connectWallet,
+  ensureMainnet,
+  getVibestrBalance,
+  payVibestrSplit,
+  shortAddr,
+  type PayProgress,
+} from "@/lib/wallet";
+
+// ── Payment rail intent ──────────────────────────────────────────────
+// The web UI is the HUMAN path → VIBESTR only. Every purchase is buying
+// pressure on the GVC token (90% treasury, 10% burn). AI agents pay via
+// USDC at /api/vibeify/x402 — a separate, machine-callable endpoint. The
+// two surfaces never overlap on purpose. See SUBMISSION.md and X402.md.
+
+// ─────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────
+// SCENE_PRESETS / ACTION_PRESETS / MOOD_PRESETS now live in lib/presets.ts
+// so the server-side x402 agent can use the same source of truth.
+
+type Generation = {
+  id: string;
+  ts: number;
+  scene: string;
+  thumb: string;
+  full: string;
+  /** Full prompt sent to gpt-image-1 / gemini for this render. */
+  prompt?: string;
+  /** Text description produced by gpt-4o-mini that fed the renderer. */
+  description?: string;
+};
+
+const STORAGE_KEY = "vibe-o-matic:gens";
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+
+function ipfsToHttp(url: string): string {
+  return url.startsWith("ipfs://")
+    ? url.replace("ipfs://", "https://ipfs.io/ipfs/")
+    : url;
+}
+
+async function makeThumb(dataUrl: string, size = 280): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new globalThis.Image();
+    img.onload = () => {
+      const ratio = Math.min(size / img.width, size / img.height, 1);
+      const w = img.width * ratio;
+      const h = img.height * ratio;
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL("image/jpeg", 0.78));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+function formatVibestr(raw: bigint): string {
+  const whole = Number(formatUnits(raw, VIBESTR_DECIMALS));
+  if (whole >= 1000) return whole.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return whole.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Page
+// ─────────────────────────────────────────────────────────────
+
+export default function Home() {
+  // ── Image source ─────────────────────────────────────────
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [sourceLabel, setSourceLabel] = useState<string>("");
+  const [sourceIsRemote, setSourceIsRemote] = useState<boolean>(false);
+
+  // ── Prompt inputs ────────────────────────────────────────
+  const [scene, setScene] = useState<string>(SCENE_PRESETS[0].scene);
+  /** Background reference images bound to the currently-active preset, or [] when scene is custom-edited. */
+  const [sceneBgImages, setSceneBgImages] = useState<string[]>(
+    SCENE_PRESETS[0].bgImages ?? []
+  );
+  /** Which view of the scene to show when a preset is active: the reference image(s) or the prompt text. */
+  const [sceneView, setSceneView] = useState<"reference" | "text">("reference");
+  /** Index of the currently visible scene reference image (used when a preset has more than one). */
+  const [activeBgIndex, setActiveBgIndex] = useState(0);
+  const [action, setAction] = useState<string>("");
+  const [mood, setMood] = useState<string>("");
+  const [size, setSize] = useState<"1024x1024" | "1024x1536" | "1536x1024">(
+    "1024x1024"
+  );
+
+  // ── NFT loader ───────────────────────────────────────────
+  const [tokenInput, setTokenInput] = useState<string>("");
+  const [loadingNft, setLoadingNft] = useState(false);
+
+  // ── Generation state ─────────────────────────────────────
+  const [generating, setGenerating] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [payProgress, setPayProgress] = useState<PayProgress | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [showBefore, setShowBefore] = useState(false);
+  /** Last render's full prompt + describer output — for the debug panel. */
+  const [lastPrompt, setLastPrompt] = useState<string | null>(null);
+  const [lastDescription, setLastDescription] = useState<string | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
+  // NOTE: Agent mode was previously exposed in the web UI under test mode so
+  // we could exercise the x402 picker without a Base Sepolia wallet. After the
+  // headless terminal flow (scripts/test-x402-agent.mjs) was verified end-to-
+  // end, the in-UI agent toggle was removed. The web UI is now a pure VIBESTR
+  // human flow; agent-mode rendering happens exclusively at /api/vibeify/x402.
+  // The server-side resolver (lib/vibeify-render.ts → resolveVibeifyParams)
+  // still supports agentMode for the x402 endpoint — only the UI surface here
+  // changed.
+
+  // ── Wallet state ─────────────────────────────────────────
+  const [account, setAccount] = useState<`0x${string}` | null>(null);
+  const [chainId, setChainId] = useState<number | null>(null);
+  const [balance, setBalance] = useState<bigint | null>(null);
+  const [pendingHashes, setPendingHashes] = useState<Hex[]>([]);
+
+  // ── Test-mode bypass ─────────────────────────────────────
+  const [bypassAvailable, setBypassAvailable] = useState(false);
+  const [bypassMode, setBypassMode] = useState(false);
+
+  // ── External data ────────────────────────────────────────
+  const [stats, setStats] = useState<CollectionStats | null>(null);
+  const [history, setHistory] = useState<Generation[]>([]);
+
+  // ── Load persisted history + GVC stats + bypass flag ─────
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setHistory(JSON.parse(raw));
+    } catch {}
+    getStats().then(setStats).catch(() => {});
+    fetch("/api/vibeify")
+      .then((r) => r.json())
+      .then((d) => setBypassAvailable(!!d?.bypassAvailable))
+      .catch(() => {});
+  }, []);
+
+  // ── Wallet bootstrap + event listeners ───────────────────
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.ethereum) return;
+    const provider = window.ethereum;
+
+    provider
+      .request({ method: "eth_accounts" })
+      .then((accs: string[]) => {
+        if (accs?.[0]) setAccount(accs[0] as `0x${string}`);
+      })
+      .catch(() => {});
+    provider
+      .request({ method: "eth_chainId" })
+      .then((hex: string) => setChainId(parseInt(hex, 16)))
+      .catch(() => {});
+
+    const onAccounts = (accs: string[]) =>
+      setAccount((accs[0] as `0x${string}`) ?? null);
+    const onChain = (hex: string) => setChainId(parseInt(hex, 16));
+
+    provider.on?.("accountsChanged", onAccounts);
+    provider.on?.("chainChanged", onChain);
+    return () => {
+      provider.removeListener?.("accountsChanged", onAccounts);
+      provider.removeListener?.("chainChanged", onChain);
+    };
+  }, []);
+
+  // ── Refresh VIBESTR balance when account/chain changes ───
+  useEffect(() => {
+    if (!account || chainId !== CHAIN_ID) {
+      setBalance(null);
+      return;
+    }
+    getVibestrBalance(account).then(setBalance).catch(() => setBalance(null));
+  }, [account, chainId]);
+
+  // ── Image source handlers ────────────────────────────────
+  function setSource(url: string, label: string, remote: boolean) {
+    setSourceUrl(url);
+    setSourceLabel(label);
+    setSourceIsRemote(remote);
+    setResult(null);
+    setShowBefore(false);
+  }
+
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) {
+      toast.error("Please pick an image file");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setSource(reader.result as string, f.name, false);
+    reader.readAsDataURL(f);
+  }
+
+  function clearSource() {
+    setSourceUrl(null);
+    setSourceLabel("");
+    setSourceIsRemote(false);
+    setResult(null);
+    setShowBefore(false);
+    setTokenInput("");
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const f = e.dataTransfer.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => setSource(reader.result as string, f.name, false);
+    reader.readAsDataURL(f);
+  }
+
+  async function loadGvcNft(idRaw: string) {
+    const id = parseInt(idRaw, 10);
+    if (Number.isNaN(id) || id < 0 || id > 6968) {
+      toast.error("Token ID must be 0–6968");
+      return;
+    }
+    setLoadingNft(true);
+    try {
+      const meta = await fetch("/gvc-metadata.json").then((r) => r.json());
+      const token = meta[String(id)];
+      if (!token?.image) throw new Error("not found");
+      setSource(ipfsToHttp(token.image), token.name || `GVC #${id}`, true);
+      toast.success(`Loaded ${token.name || `GVC #${id}`}`);
+    } catch {
+      toast.error("Could not load that token");
+    } finally {
+      setLoadingNft(false);
+    }
+  }
+
+  // ── Wallet ───────────────────────────────────────────────
+  async function handleConnect() {
+    try {
+      const addr = await connectWallet();
+      setAccount(addr);
+      try {
+        await ensureMainnet();
+        const id = await (window.ethereum as { request: (a: { method: string }) => Promise<string> }).request({ method: "eth_chainId" });
+        setChainId(parseInt(id, 16));
+      } catch (e) {
+        toast.error((e as Error).message);
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
+  // ── The big one: pay + generate ──────────────────────────
+  async function vibeify() {
+    if (!sourceUrl) {
+      toast.error("Pick an image first");
+      return;
+    }
+
+    const testMode = bypassMode && bypassAvailable;
+
+    if (!testMode) {
+      if (!account) {
+        toast.error("Connect your wallet first");
+        return;
+      }
+      if (balance !== null && balance < TOTAL_VIBESTR_RAW) {
+        toast.error(
+          `Need ${TOTAL_VIBESTR} VIBESTR — you have ${formatVibestr(balance)}`
+        );
+        return;
+      }
+    }
+
+    setGenerating(true);
+    setResult(null);
+    setShowBefore(false);
+    setLastPrompt(null);
+    setLastDescription(null);
+
+    // ── 1. VIBESTR payment: send the multi-tx split up front ──
+    let hashes: Hex[] = pendingHashes;
+    if (!testMode && hashes.length < SPLIT_RECIPIENTS.length) {
+      setPaying(true);
+      const payToast = toast.loading(
+        hashes.length > 0
+          ? `Resuming payment (${hashes.length}/${SPLIT_RECIPIENTS.length} sent)…`
+          : `Approving ${TOTAL_VIBESTR} VIBESTR in your wallet…`
+      );
+      try {
+        hashes = await payVibestrSplit(account!, setPayProgress, hashes);
+        setPendingHashes(hashes);
+        toast.success("Payment sent. Generating…", { id: payToast });
+      } catch (e) {
+        const msg = (e as Error).message || "Payment cancelled";
+        toast.error(msg, { id: payToast });
+        setGenerating(false);
+        setPaying(false);
+        setPayProgress(null);
+        return;
+      } finally {
+        setPaying(false);
+        setPayProgress(null);
+      }
+    }
+
+    // ── 2. Build the request body ──
+    const fd = new FormData();
+    if (sourceIsRemote) {
+      fd.set("imageUrl", sourceUrl);
+    } else {
+      const blob = await (await fetch(sourceUrl)).blob();
+      const file = new File([blob], "source.png", {
+        type: blob.type || "image/png",
+      });
+      fd.set("image", file);
+    }
+    fd.set("scene", scene);
+    fd.set("action", action);
+    fd.set("mood", mood);
+    fd.set("size", size);
+    if (sceneBgImages.length > 0) {
+      fd.set("sceneBgImages", sceneBgImages.join(","));
+    }
+
+    if (testMode) {
+      fd.set("bypass", "1");
+    } else {
+      fd.set("payer", account!);
+      fd.set("txHashes", hashes.join(","));
+    }
+
+    // ── 3. Submit to the VIBESTR endpoint ──
+    const endpoint = "/api/vibeify";
+    const fetcher: typeof fetch = globalThis.fetch;
+
+    const genToast = toast.loading("Rendering Vibetown…");
+    try {
+      const res = await fetcher(endpoint, { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+      setResult(data.image);
+      setLastPrompt(typeof data.prompt === "string" ? data.prompt : null);
+      setLastDescription(
+        typeof data.description === "string" ? data.description : null
+      );
+      setPendingHashes([]); // consumed on success
+      toast.success("Vibe-ified!", { id: genToast });
+
+      const thumb = await makeThumb(data.image);
+      const rec: Generation = {
+        id: Math.random().toString(36).slice(2, 9),
+        ts: Date.now(),
+        scene: scene.slice(0, 140),
+        thumb,
+        full: data.image,
+        prompt: typeof data.prompt === "string" ? data.prompt : undefined,
+        description:
+          typeof data.description === "string" ? data.description : undefined,
+      };
+      const next = [rec, ...history].slice(0, 24);
+      setHistory(next);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        try {
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(next.map((g) => ({ ...g, full: g.thumb })))
+          );
+        } catch {}
+      }
+
+      // Refresh balance after payment lands
+      getVibestrBalance(account)
+        .then(setBalance)
+        .catch(() => {});
+    } catch (e) {
+      toast.error((e as Error).message || "Generation failed", { id: genToast });
+      // Note: payment is already consumed on-chain. Server marks hashes used.
+      // We clear pendingHashes so the user doesn't try to re-use them.
+      setPendingHashes([]);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function downloadResult() {
+    if (!result) return;
+    const a = document.createElement("a");
+    a.href = result;
+    a.download = `vibetown-${Date.now()}.png`;
+    a.click();
+  }
+
+  function clearHistory() {
+    setHistory([]);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+  }
+
+  // ── Derived ──────────────────────────────────────────────
+  const totalGens = history.length;
+  const lastGenAgo = useMemo(() => {
+    if (!history[0]) return "—";
+    const m = Math.floor((Date.now() - history[0].ts) / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m}m ago`;
+    return `${Math.floor(m / 60)}h ago`;
+  }, [history]);
+
+  const wrongChainForVibestr =
+    account && chainId !== null && chainId !== CHAIN_ID;
+  const insufficientFunds =
+    balance !== null &&
+    balance < TOTAL_VIBESTR_RAW &&
+    !!account &&
+    !wrongChainForVibestr;
+  const resumeAvailable = pendingHashes.length > 0;
+  const testMode = bypassMode && bypassAvailable;
+
+  const primaryDisabled =
+    !sourceUrl ||
+    generating ||
+    paying ||
+    (!testMode && (!account || !!wrongChainForVibestr || insufficientFunds));
+
+  const primaryLabel = (() => {
+    if (paying)
+      return payProgress
+        ? `Approve ${payProgress.recipient} (${payProgress.index + 1}/${payProgress.total})…`
+        : "Approving…";
+    if (generating) return "Generating…";
+    if (testMode)
+      return result ? "Test render another" : "Test render (free)";
+    if (!account) return "Connect wallet to Vibe-ify";
+    if (wrongChainForVibestr) return "Switch to Ethereum Mainnet";
+    if (insufficientFunds)
+      return `Need ${TOTAL_VIBESTR} VIBESTR (you have ${
+        balance ? formatVibestr(balance) : "0"
+      })`;
+    if (resumeAvailable)
+      return `Resume payment (${pendingHashes.length}/${SPLIT_RECIPIENTS.length} sent)`;
+    if (result) return "Vibe-ify another";
+    return "Vibe-ify it";
+  })();
+
+  return (
+    <main className="min-h-screen relative px-4 sm:px-8 py-10 overflow-hidden">
+      {/* Ambient embers */}
+      <div className="absolute inset-0 pointer-events-none">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className={`ember ${i % 3 === 0 ? "ember-lg" : ""}`}
+            style={{
+              left: `${5 + i * 8}%`,
+              top: `${10 + (i % 5) * 18}%`,
+              animationDelay: `${i * 0.5}s`,
+              animationDuration: `${5 + (i % 4)}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="relative z-10 max-w-7xl mx-auto">
+        {/* ── Header ─────────────────────────────────────── */}
+        <motion.header
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between mb-10 flex-wrap gap-4"
+        >
+          <div className="flex items-center gap-4">
+            <Image
+              src="/shaka.png"
+              alt="GVC"
+              width={56}
+              height={56}
+              className="shaka-idle drop-shadow-[0_0_20px_rgba(255,224,72,0.4)]"
+            />
+            <div>
+              <h1 className="text-3xl sm:text-5xl font-display font-black text-shimmer leading-none tracking-tight">
+                VIBE-O-MATIC
+              </h1>
+              <p className="text-white/40 font-body text-xs sm:text-sm mt-1">
+                Drop any image → get it back as a tiny, cinematic Vibetown scene.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <WalletPill
+              account={account}
+              balance={balance}
+              wrongChain={!!wrongChainForVibestr}
+              onConnect={handleConnect}
+            />
+          </div>
+        </motion.header>
+
+        {/* ── Main grid ──────────────────────────────────── */}
+        <div className="grid lg:grid-cols-[1fr_400px] gap-6">
+          {/* Preview */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="rounded-2xl bg-gvc-dark border border-white/[0.08] p-5 card-glow"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    generating || paying
+                      ? "bg-pink-accent animate-pulse"
+                      : "bg-gvc-green animate-pulse"
+                  }`}
+                />
+                <p className="font-body text-xs uppercase tracking-wider text-white/50">
+                  {paying
+                    ? "Awaiting wallet…"
+                    : generating
+                    ? "Rendering Vibetown…"
+                    : "Preview"}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {result && sourceUrl && (
+                  <button
+                    onClick={() => setShowBefore((s) => !s)}
+                    className="text-white/50 hover:text-gvc-gold text-xs font-body transition-colors"
+                  >
+                    {showBefore ? "Show after" : "Show before"}
+                  </button>
+                )}
+                <p className="text-white/30 font-body text-xs">
+                  {sourceLabel || size}
+                </p>
+              </div>
+            </div>
+
+            <div
+              onDrop={onDrop}
+              onDragOver={(e) => e.preventDefault()}
+              className={`relative rounded-xl overflow-hidden border border-white/[0.08] bg-gvc-black flex items-center justify-center ${
+                size === "1024x1536"
+                  ? "aspect-[2/3]"
+                  : size === "1536x1024"
+                  ? "aspect-[3/2]"
+                  : "aspect-square"
+              }`}
+            >
+              <AnimatePresence mode="wait">
+                {result && !showBefore && (
+                  <motion.img
+                    key="after"
+                    src={result}
+                    alt="Vibetown render"
+                    initial={{ opacity: 0, scale: 1.02 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                )}
+                {sourceUrl && (!result || showBefore) && (
+                  <motion.img
+                    key="before"
+                    src={sourceUrl}
+                    alt="Source"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: result ? 1 : 0.85 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="absolute inset-0 w-full h-full object-contain bg-gvc-black"
+                  />
+                )}
+              </AnimatePresence>
+
+              {!sourceUrl && !generating && (
+                <div className="relative text-center p-8">
+                  <div className="text-5xl mb-3 opacity-70">🎬</div>
+                  <p className="text-white/60 font-display text-lg mb-1">
+                    Drop an image here
+                  </p>
+                  <p className="text-white/30 font-body text-sm">
+                    or pick a GVC token on the right →
+                  </p>
+                </div>
+              )}
+
+              {(generating || paying) && (
+                <div className="absolute inset-0 bg-gvc-black/60 backdrop-blur-sm flex flex-col items-center justify-center">
+                  <div className="text-4xl animate-pulse mb-2">
+                    {paying ? "💸" : "✨"}
+                  </div>
+                  <p className="text-gvc-gold font-display text-sm mb-1">
+                    {paying
+                      ? payProgress
+                          ? `Sign ${payProgress.recipient} payment (${payProgress.index + 1}/${payProgress.total})`
+                          : "Waiting for wallet…"
+                      : "Rendering Vibetown"}
+                  </p>
+                  <p className="text-white/40 font-body text-xs">
+                    {paying ? "Approve in your wallet" : "Usually 30–60 seconds"}
+                  </p>
+                </div>
+              )}
+
+              {result && !showBefore && (
+                <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 backdrop-blur px-2.5 py-1 rounded-full text-[10px] font-body uppercase tracking-wider text-gvc-gold border border-gvc-gold/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gvc-gold animate-pulse" />
+                  Vibetown v6
+                </div>
+              )}
+              {showBefore && result && (
+                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur px-2.5 py-1 rounded-full text-[10px] font-body uppercase tracking-wider text-white/70 border border-white/20">
+                  Original
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={vibeify}
+                disabled={primaryDisabled}
+                className="flex-1 px-4 py-3 rounded-xl bg-gvc-gold text-gvc-black font-display font-bold text-sm hover:shadow-[0_0_24px_rgba(255,224,72,0.4)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {primaryLabel}
+              </button>
+              <button
+                onClick={downloadResult}
+                disabled={!result}
+                className="px-4 py-3 rounded-xl bg-gvc-gray/60 border border-white/[0.08] text-white/80 font-body text-sm hover:border-gvc-gold/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Download PNG
+              </button>
+            </div>
+
+            {/* Debug panel — prompt + describer output for the last render */}
+            {(lastPrompt || lastDescription) && (
+              <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/40 overflow-hidden">
+                <button
+                  onClick={() => setShowDebug((v) => !v)}
+                  className="w-full px-4 py-2 flex items-center justify-between text-left text-[11px] font-body text-white/50 hover:text-white/80 transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-gvc-gold/70">{showDebug ? "▾" : "▸"}</span>
+                    <span>Show what was sent to the model</span>
+                  </span>
+                  <span className="text-white/30">
+                    {lastPrompt ? `${Math.round(lastPrompt.length / 4)} tokens approx` : ""}
+                  </span>
+                </button>
+                {showDebug && (
+                  <div className="border-t border-white/[0.06] px-4 py-3 space-y-3 max-h-[400px] overflow-y-auto">
+                    {lastDescription && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[10px] uppercase tracking-wider font-body text-white/40">
+                            Describer output (gpt-4o-mini)
+                          </p>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard?.writeText(lastDescription);
+                              toast.success("Description copied");
+                            }}
+                            className="text-[10px] font-body text-white/30 hover:text-gvc-gold"
+                          >
+                            copy
+                          </button>
+                        </div>
+                        <pre className="text-[11px] font-mono text-white/70 whitespace-pre-wrap leading-snug">
+                          {lastDescription}
+                        </pre>
+                      </div>
+                    )}
+                    {lastPrompt && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[10px] uppercase tracking-wider font-body text-white/40">
+                            Render prompt (to gemini-2.5-flash-image)
+                          </p>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard?.writeText(lastPrompt);
+                              toast.success("Prompt copied");
+                            }}
+                            className="text-[10px] font-body text-white/30 hover:text-gvc-gold"
+                          >
+                            copy
+                          </button>
+                        </div>
+                        <pre className="text-[11px] font-mono text-white/70 whitespace-pre-wrap leading-snug">
+                          {lastPrompt}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* VIBESTR pricing line — single rail, no toggle */}
+            <div
+              className={`mt-3 flex items-center justify-center transition-opacity ${
+                testMode ? "opacity-30" : ""
+              }`}
+            >
+              <div className="inline-flex items-center px-3 py-1 rounded-full bg-gvc-gold text-gvc-black text-[11px] font-display">
+                {TOTAL_VIBESTR.toString()} VIBESTR
+              </div>
+            </div>
+            <div
+              className={`mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[10px] font-body transition-opacity ${
+                testMode ? "opacity-30" : "text-white/40"
+              }`}
+            >
+              <span>Ethereum · 2 sigs · split</span>
+              {SPLIT_RECIPIENTS.map((r, i) => (
+                <span key={r.address} className="flex items-center gap-1">
+                  {i > 0 && <span className="text-white/20">·</span>}
+                  <span className="text-white/60">
+                    {(Number(TOTAL_VIBESTR) * r.percent) / 100}
+                  </span>
+                  <span>→ {r.name}</span>
+                </span>
+              ))}
+            </div>
+
+            {/* Test-mode toggle (only renders when server allows bypass) */}
+            {bypassAvailable && (
+              <div
+                className={`mt-3 flex items-center justify-between gap-3 px-3 py-2 rounded-xl border ${
+                  testMode
+                    ? "bg-pink-accent/10 border-pink-accent/40"
+                    : "bg-black/30 border-white/[0.06]"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base">🧪</span>
+                  <div className="min-w-0">
+                    <p
+                      className={`font-display text-xs ${
+                        testMode ? "text-pink-accent" : "text-white/70"
+                      }`}
+                    >
+                      Test mode
+                    </p>
+                    <p className="text-[10px] font-body text-white/40 truncate">
+                      {testMode
+                        ? "No VIBESTR will be charged. Disable before launch."
+                        : "Skip payment — uses your OpenAI credits only."}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setBypassMode((v) => !v)}
+                  className={`shrink-0 relative w-10 h-5 rounded-full transition-colors ${
+                    testMode ? "bg-pink-accent" : "bg-gvc-gray"
+                  }`}
+                  aria-label="Toggle test mode"
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                      testMode ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
+
+          </motion.section>
+
+          {/* Controls */}
+          <motion.aside
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="space-y-4"
+          >
+            <Panel title="1. Your image">
+              {sourceUrl && (
+                <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 rounded-lg bg-gvc-gold/10 border border-gvc-gold/30">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={sourceUrl}
+                    alt={sourceLabel}
+                    className="w-8 h-8 rounded object-cover border border-white/10"
+                  />
+                  <span className="flex-1 text-[11px] font-body text-gvc-gold truncate">
+                    {sourceLabel || "Loaded"}
+                  </span>
+                  <button
+                    onClick={clearSource}
+                    aria-label="Clear current image"
+                    className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 border border-white/10 text-white/60 text-xs hover:text-pink-accent hover:border-pink-accent/40 transition-all"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              <label className="block">
+                <span className="block text-white/50 font-body text-xs mb-2">
+                  Upload
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={onFile}
+                  onClick={(e) => {
+                    // Reset value so picking the same file twice still fires onChange.
+                    (e.currentTarget as HTMLInputElement).value = "";
+                  }}
+                  className="block w-full text-xs text-white/70 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-gvc-gold file:text-gvc-black file:font-body file:font-semibold file:cursor-pointer"
+                />
+              </label>
+              <div className="mt-4">
+                <span className="block text-white/50 font-body text-xs mb-2">
+                  Or load a GVC token (0–6968)
+                </span>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={tokenInput}
+                    onChange={(e) => setTokenInput(e.target.value)}
+                    placeholder="5618"
+                    className="flex-1 px-3 py-2 rounded-lg bg-black/60 border border-white/[0.08] text-white text-sm font-body focus:border-gvc-gold/40 outline-none"
+                  />
+                  <button
+                    onClick={() => loadGvcNft(tokenInput)}
+                    disabled={loadingNft}
+                    className="px-3 py-2 rounded-lg bg-gvc-gold/15 border border-gvc-gold/30 text-gvc-gold font-body text-sm font-semibold hover:bg-gvc-gold/25 transition-all disabled:opacity-50"
+                  >
+                    {loadingNft ? "…" : "Load"}
+                  </button>
+                </div>
+              </div>
+            </Panel>
+
+            <Panel title="2. The scene">
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {SCENE_PRESETS.map((p) => {
+                  const active = scene === p.scene;
+                  return (
+                    <button
+                      key={p.label}
+                      onClick={() => {
+                        setScene(p.scene);
+                        setSceneBgImages(p.bgImages ?? []);
+                        setSceneView("reference");
+                        setActiveBgIndex(0);
+                      }}
+                      className={`text-[11px] font-body px-2.5 py-1 rounded-full border transition-all ${
+                        active
+                          ? "bg-gvc-gold/15 border-gvc-gold/50 text-gvc-gold"
+                          : "bg-black/30 border-white/[0.08] text-white/60 hover:border-white/20"
+                      }`}
+                    >
+                      {p.emoji} {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {sceneBgImages.length > 0 ? (
+                <>
+                  {/* View toggle — reference image vs text prompt */}
+                  <div className="flex items-center gap-1 mb-3 p-0.5 bg-black/40 rounded-lg w-fit">
+                    <button
+                      onClick={() => setSceneView("reference")}
+                      className={`text-[10px] font-body uppercase tracking-wider px-3 py-1 rounded-md transition-all ${
+                        sceneView === "reference"
+                          ? "bg-gvc-gold/15 text-gvc-gold"
+                          : "text-white/40 hover:text-white/70"
+                      }`}
+                    >
+                      Reference
+                    </button>
+                    <button
+                      onClick={() => setSceneView("text")}
+                      className={`text-[10px] font-body uppercase tracking-wider px-3 py-1 rounded-md transition-all ${
+                        sceneView === "text"
+                          ? "bg-gvc-gold/15 text-gvc-gold"
+                          : "text-white/40 hover:text-white/70"
+                      }`}
+                    >
+                      Text
+                    </button>
+                  </div>
+
+                  {sceneView === "reference" ? (
+                    <div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/scenes/${sceneBgImages[activeBgIndex] ?? sceneBgImages[0]}`}
+                        alt={sceneBgImages[activeBgIndex] ?? sceneBgImages[0]}
+                        className="w-full aspect-video object-contain rounded-lg border border-gvc-gold/30 bg-black/40"
+                      />
+                      {sceneBgImages.length > 1 && (
+                        <div className="flex gap-1.5 mt-2 justify-center">
+                          {sceneBgImages.map((_, i) => (
+                            <button
+                              key={i}
+                              onClick={() => setActiveBgIndex(i)}
+                              aria-label={`Show scene reference ${i + 1}`}
+                              className={`w-6 h-6 rounded-full text-[10px] font-body font-semibold transition-all ${
+                                activeBgIndex === i
+                                  ? "bg-gvc-gold text-gvc-black"
+                                  : "bg-black/40 border border-white/10 text-white/50 hover:border-gvc-gold/40 hover:text-white/80"
+                              }`}
+                            >
+                              {i + 1}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <textarea
+                      value={scene}
+                      onChange={(e) => {
+                        setScene(e.target.value);
+                        // Custom text-edited scenes get no bg refs — clear them.
+                        setSceneBgImages([]);
+                      }}
+                      rows={4}
+                      placeholder="Describe the environment…"
+                      className="w-full px-3 py-2 rounded-lg bg-black/60 border border-white/[0.08] text-white text-sm font-body focus:border-gvc-gold/40 outline-none resize-none"
+                    />
+                  )}
+                </>
+              ) : (
+                <textarea
+                  value={scene}
+                  onChange={(e) => {
+                    setScene(e.target.value);
+                    setSceneBgImages([]);
+                  }}
+                  rows={3}
+                  placeholder="Describe the environment…"
+                  className="w-full px-3 py-2 rounded-lg bg-black/60 border border-white/[0.08] text-white text-sm font-body focus:border-gvc-gold/40 outline-none resize-none"
+                />
+              )}
+            </Panel>
+
+            <Panel title="3. Action & mood (optional)">
+              <p className="text-[10px] font-body uppercase tracking-wider text-white/40 mb-1.5">
+                Action
+              </p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {ACTION_PRESETS.map((p) => {
+                  const active = action === p.prompt;
+                  return (
+                    <button
+                      key={p.label}
+                      onClick={() => setAction(active ? "" : p.prompt)}
+                      className={`text-[11px] font-body px-2.5 py-1 rounded-full border transition-all ${
+                        active
+                          ? "bg-gvc-gold/15 border-gvc-gold/50 text-gvc-gold"
+                          : "bg-black/30 border-white/[0.08] text-white/60 hover:border-white/20"
+                      }`}
+                    >
+                      {p.emoji} {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                type="text"
+                value={action}
+                onChange={(e) => setAction(e.target.value)}
+                placeholder="…or type your own action"
+                className="w-full px-3 py-2 rounded-lg bg-black/60 border border-white/[0.08] text-white text-sm font-body focus:border-gvc-gold/40 outline-none mb-4"
+              />
+
+              <p className="text-[10px] font-body uppercase tracking-wider text-white/40 mb-1.5">
+                Mood
+              </p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {MOOD_PRESETS.map((p) => {
+                  const active = mood === p.prompt;
+                  return (
+                    <button
+                      key={p.label}
+                      onClick={() => setMood(active ? "" : p.prompt)}
+                      className={`text-[11px] font-body px-2.5 py-1 rounded-full border transition-all ${
+                        active
+                          ? "bg-gvc-gold/15 border-gvc-gold/50 text-gvc-gold"
+                          : "bg-black/30 border-white/[0.08] text-white/60 hover:border-white/20"
+                      }`}
+                    >
+                      {p.emoji} {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                type="text"
+                value={mood}
+                onChange={(e) => setMood(e.target.value)}
+                placeholder="…or type your own mood"
+                className="w-full px-3 py-2 rounded-lg bg-black/60 border border-white/[0.08] text-white text-sm font-body focus:border-gvc-gold/40 outline-none"
+              />
+              <div className="flex gap-2 mt-3">
+                {(["1024x1024", "1024x1536", "1536x1024"] as const).map((s) => {
+                  const label =
+                    s === "1024x1024"
+                      ? "Square"
+                      : s === "1024x1536"
+                      ? "Portrait"
+                      : "Landscape";
+                  const active = size === s;
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setSize(s)}
+                      className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-body transition-all ${
+                        active
+                          ? "bg-gvc-gold/15 border border-gvc-gold/40 text-gvc-gold"
+                          : "bg-black/30 border border-white/[0.06] text-white/60"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </Panel>
+          </motion.aside>
+        </div>
+
+        {/* ── Stats ──────────────────────────────────────── */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="grid md:grid-cols-3 gap-4 mt-6"
+        >
+          <Stat label="Total renders" value={totalGens} />
+          <Stat label="Last render" valueText={lastGenAgo} />
+          <Stat
+            label="GVC floor"
+            valueText={
+              typeof stats?.floorPriceUsd === "number"
+                ? `$${stats.floorPriceUsd.toLocaleString(undefined, {
+                    maximumFractionDigits: 0,
+                  })}`
+                : "—"
+            }
+          />
+        </motion.section>
+
+        {/* ── History ────────────────────────────────────── */}
+        {history.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="mt-6 rounded-2xl bg-gvc-dark border border-white/[0.08] p-5"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-white/40 font-body text-xs uppercase tracking-wider">
+                Your Vibetown gallery
+              </p>
+              <button
+                onClick={clearHistory}
+                className="text-white/30 hover:text-pink-accent text-xs font-body transition-colors"
+              >
+                Clear history
+              </button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {history.map((g) => (
+                <button
+                  key={g.id}
+                  onClick={() => {
+                    setResult(g.full);
+                    setShowBefore(false);
+                    setScene(g.scene);
+                    // If the loaded scene matches a preset, restore its bg refs;
+                    // otherwise the user was on custom text and we leave bgs empty.
+                    const matched = SCENE_PRESETS.find((p) => p.scene === g.scene);
+                    setSceneBgImages(matched?.bgImages ?? []);
+                    setLastPrompt(g.prompt ?? null);
+                    setLastDescription(g.description ?? null);
+                  }}
+                  className="group text-left rounded-xl overflow-hidden border border-white/[0.06] bg-black/40 hover:border-gvc-gold/40 transition-all"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={g.thumb}
+                    alt={g.scene}
+                    className="w-full aspect-square object-cover group-hover:opacity-90 transition-opacity"
+                  />
+                  <div className="p-2">
+                    <p className="font-body text-[11px] text-white/70 line-clamp-2 leading-snug">
+                      {g.scene}
+                    </p>
+                    <p className="text-[10px] text-white/30 font-body mt-1">
+                      {new Date(g.ts).toLocaleString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
+        <p className="text-center text-white/20 text-xs font-body mt-10">
+          vibe-o-matic · powered by gpt-image-1 · made with the GVC Builder Kit
+        </p>
+      </div>
+    </main>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Small components
+// ─────────────────────────────────────────────────────────────
+
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl bg-gvc-dark border border-white/[0.08] p-5">
+      <p className="font-display text-sm text-white mb-3">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function WalletPill({
+  account,
+  balance,
+  wrongChain,
+  onConnect,
+}: {
+  account: `0x${string}` | null;
+  balance: bigint | null;
+  wrongChain: boolean;
+  onConnect: () => void;
+}) {
+  if (!account) {
+    return (
+      <button
+        onClick={onConnect}
+        className="px-4 py-2 rounded-full bg-gvc-gold text-gvc-black font-display font-bold text-sm hover:shadow-[0_0_20px_rgba(255,224,72,0.4)] transition-all"
+      >
+        Connect Wallet
+      </button>
+    );
+  }
+  if (wrongChain) {
+    return (
+      <button
+        onClick={onConnect}
+        className="px-4 py-2 rounded-full bg-pink-accent/20 border border-pink-accent/40 text-pink-accent font-body font-semibold text-xs"
+      >
+        Switch to Mainnet
+      </button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gvc-dark border border-white/[0.08]">
+      <span className="w-1.5 h-1.5 rounded-full bg-gvc-green" />
+      <span className="font-body text-xs text-white/70">{shortAddr(account)}</span>
+      <span className="text-white/20">·</span>
+      <span className="font-display text-xs text-gvc-gold">
+        {balance !== null ? `${formatVibestr(balance)} VIBESTR` : "…"}
+      </span>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  valueText,
+}: {
+  label: string;
+  value?: number;
+  valueText?: string;
+}) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    if (typeof value !== "number") return;
+    let start = 0;
+    const step = Math.max(1, value / 24);
+    const t = setInterval(() => {
+      start += step;
+      if (start >= value) {
+        setDisplay(value);
+        clearInterval(t);
+      } else {
+        setDisplay(Math.floor(start));
+      }
+    }, 25);
+    return () => clearInterval(t);
+  }, [value]);
+
+  return (
+    <div className="rounded-2xl bg-gvc-dark border border-white/[0.08] p-5">
+      <p className="text-white/40 font-body text-[10px] uppercase tracking-wider mb-1">
+        {label}
+      </p>
+      <p className="font-display text-2xl text-gvc-gold">
+        {typeof value === "number" ? display.toLocaleString() : valueText ?? "—"}
+      </p>
+    </div>
+  );
+}

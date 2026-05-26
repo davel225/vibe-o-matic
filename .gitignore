@@ -1,0 +1,16 @@
+node_modules
+.next
+.env*.local
+.DS_Store
+.claude/settings.local.json
+
+# Personal test photos (iPhone-style naming) — keep out of the public repo
+IMG_*.png
+IMG_*.jpg
+IMG_*.jpeg
+img_*.png
+img_*.jpg
+img_*.jpeg
+
+# Outputs from scripts/test-x402-agent.mjs — test artifacts, not source
+x402-agent-out-*.png

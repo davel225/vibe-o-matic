@@ -1,0 +1,333 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-gvc-gold: #FFE048;
+  --color-gvc-black: #050505;
+  --color-gvc-dark: #121212;
+  --color-gvc-gray: #1F1F1F;
+  --color-pink-accent: #FF6B9D;
+  --color-gvc-orange: #FF5F1F;
+  --color-gvc-green: #2EFF2E;
+}
+
+/* ---------------------------------- */
+/* Base Styles                        */
+/* ---------------------------------- */
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-gvc-black);
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: var(--font-mundial), system-ui, sans-serif;
+}
+
+/* Grid background texture. The SVG itself uses a 10%-white stroke, so no
+   extra CSS opacity is layered — otherwise the two opacities stack and the
+   grid disappears on the gvc-black body. No background-size override: the
+   browser tiles the SVG at its intrinsic 100×100, matching gvcgallery.xyz. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("/grid.svg");
+  background-repeat: repeat;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Gold bottom gradient */
+body::after {
+  content: "";
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 70vh;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255, 224, 72, 0.1) 0%, rgba(255, 224, 72, 0.04) 40%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+::selection {
+  background-color: var(--color-gvc-gold);
+  color: var(--color-gvc-black);
+}
+
+/* ---------------------------------- */
+/* Scrollbar                          */
+/* ---------------------------------- */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-gvc-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gvc-gray);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #333333;
+}
+
+/* ---------------------------------- */
+/* Font Utilities                     */
+/* ---------------------------------- */
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-brice), serif;
+  }
+
+  .font-body {
+    font-family: var(--font-mundial), sans-serif;
+  }
+}
+
+/* ---------------------------------- */
+/* Gold Shimmer Text                  */
+/* ---------------------------------- */
+
+.text-shimmer {
+  background: linear-gradient(
+    110deg,
+    var(--color-gvc-gold) 0%,
+    #fff8b8 25%,
+    var(--color-gvc-gold) 50%,
+    #fff8b8 75%,
+    var(--color-gvc-gold) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 2.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ---------------------------------- */
+/* Card Glow                          */
+/* ---------------------------------- */
+
+.card-glow {
+  box-shadow:
+    0 0 20px rgba(255, 224, 72, 0.15),
+    0 0 60px rgba(255, 224, 72, 0.05);
+  transition: box-shadow 0.4s ease;
+}
+
+.card-glow:hover {
+  box-shadow:
+    0 0 30px rgba(255, 224, 72, 0.3),
+    0 0 80px rgba(255, 224, 72, 0.1);
+}
+
+/* ---------------------------------- */
+/* Gold Ember Float                   */
+/* ---------------------------------- */
+
+.ember {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--color-gvc-gold);
+  border-radius: 50%;
+  opacity: 0.6;
+  animation: emberFloat 6s ease-in-out infinite;
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(255, 224, 72, 0.7), 0 0 14px rgba(255, 224, 72, 0.35);
+}
+
+.ember-lg {
+  width: 6px;
+  height: 6px;
+  box-shadow: 0 0 10px rgba(255, 224, 72, 0.8), 0 0 22px rgba(255, 224, 72, 0.45);
+}
+
+.ember-orb {
+  width: 10px;
+  height: 10px;
+  background: radial-gradient(circle, rgba(255, 224, 72, 0.85) 0%, rgba(255, 224, 72, 0.15) 60%, transparent 100%);
+  filter: blur(1px);
+  box-shadow: 0 0 18px rgba(255, 224, 72, 0.5), 0 0 40px rgba(255, 224, 72, 0.25);
+  animation: emberDrift 9s ease-in-out infinite;
+}
+
+.ember-twinkle {
+  animation: emberTwinkle 3s ease-in-out infinite;
+}
+
+@keyframes emberFloat {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.45;
+  }
+  25% {
+    transform: translate(10px, -18px) scale(1.05);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate(-8px, -34px) scale(1.2);
+    opacity: 1;
+  }
+  75% {
+    transform: translate(6px, -22px) scale(1.05);
+    opacity: 0.7;
+  }
+}
+
+@keyframes emberDrift {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.5;
+  }
+  33% {
+    transform: translate(-22px, -42px) scale(1.25);
+    opacity: 1;
+  }
+  66% {
+    transform: translate(18px, -28px) scale(0.9);
+    opacity: 0.7;
+  }
+}
+
+@keyframes emberTwinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+/* ---------------------------------- */
+/* Gold Glow Pulse                    */
+/* ---------------------------------- */
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 20px rgba(255, 224, 72, 0.3),
+      0 0 60px rgba(255, 224, 72, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(255, 224, 72, 0.5),
+      0 0 80px rgba(255, 224, 72, 0.2);
+  }
+}
+
+/* ---------------------------------- */
+/* Wiggle (Shaka)                     */
+/* ---------------------------------- */
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-12deg); }
+  50% { transform: rotate(8deg); }
+  75% { transform: rotate(-4deg); }
+}
+
+/* Idle shaka — long pause + brief wiggle every cycle */
+@keyframes shakaIdle {
+  0%, 88%, 100% { transform: rotate(0deg); }
+  90% { transform: rotate(-14deg); }
+  93% { transform: rotate(10deg); }
+  96% { transform: rotate(-5deg); }
+}
+
+.shaka-idle {
+  animation: shakaIdle 5s ease-in-out infinite;
+  transform-origin: 70% 70%;
+}
+
+.shaka-idle:hover {
+  animation: wiggle 0.5s ease-in-out;
+}
+
+/* ---------------------------------- */
+/* Rising Gold Particles              */
+/* ---------------------------------- */
+
+.rising-particle {
+  position: fixed;
+  bottom: -10px;
+  width: 3px;
+  height: 3px;
+  background: var(--color-gvc-gold);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  animation: riseUp linear infinite;
+  box-shadow: 0 0 6px rgba(255, 224, 72, 0.6), 0 0 14px rgba(255, 224, 72, 0.3);
+}
+
+@keyframes riseUp {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate(20px, -50vh) scale(0.85);
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate(-10px, -100vh) scale(0.3);
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------- */
+/* Range Slider                       */
+/* ---------------------------------- */
+
+.gvc-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+}
+
+.gvc-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-gvc-gold);
+  border: 2px solid #050505;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(255, 224, 72, 0.4), 0 0 12px rgba(255, 224, 72, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gvc-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 1px rgba(255, 224, 72, 0.6), 0 0 16px rgba(255, 224, 72, 0.5);
+}
+
+.gvc-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-gvc-gold);
+  border: 2px solid #050505;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(255, 224, 72, 0.4), 0 0 12px rgba(255, 224, 72, 0.3);
+}
