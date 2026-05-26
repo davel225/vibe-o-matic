@@ -14,3 +14,6 @@ img_*.jpeg
 
 # Outputs from scripts/test-x402-agent.mjs — test artifacts, not source
 x402-agent-out-*.png
+
+# TypeScript incremental-build cache
+*.tsbuildinfo
