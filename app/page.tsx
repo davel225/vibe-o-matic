@@ -6,6 +6,7 @@ import Image from "next/image";
 import toast from "react-hot-toast";
 import { formatUnits, type Hex } from "viem";
 import { getStats, type CollectionStats } from "@/lib/gvc-api";
+import { compressForUpload } from "@/lib/compress-image";
 import {
   SCENE_PRESETS,
   ACTION_PRESETS,
@@ -210,16 +211,36 @@ export default function Home() {
     setShowBefore(false);
   }
 
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
+  // Compress any locally-uploaded image to ≤~220KB before storing as the
+  // source. Vercel's serverless body limit is 4.5MB; raw phone photos blow
+  // through that easily (typical iPhone PNG: 15–25MB), causing 413s that
+  // surface as opaque JSON-parse errors on the client. Compressing here
+  // also shrinks the gpt-4o-mini describer's input + speeds up the upload.
+  async function ingestLocalFile(f: File) {
     if (!f.type.startsWith("image/")) {
       toast.error("Please pick an image file");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => setSource(reader.result as string, f.name, false);
-    reader.readAsDataURL(f);
+    const ingestToast = toast.loading("Preparing image…");
+    try {
+      const compressed = await compressForUpload(f);
+      setSource(compressed.dataUrl, f.name, false);
+      toast.success(
+        `Image ready (${Math.round(compressed.bytes / 1024)} KB)`,
+        { id: ingestToast }
+      );
+    } catch (e) {
+      toast.error(
+        `Could not process image: ${(e as Error).message}`,
+        { id: ingestToast }
+      );
+    }
+  }
+
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    void ingestLocalFile(f);
   }
 
   function clearSource() {
@@ -235,9 +256,7 @@ export default function Home() {
     e.preventDefault();
     const f = e.dataTransfer.files?.[0];
     if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => setSource(reader.result as string, f.name, false);
-    reader.readAsDataURL(f);
+    void ingestLocalFile(f);
   }
 
   async function loadGvcNft(idRaw: string) {
