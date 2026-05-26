@@ -1,50 +1,37 @@
 # VIBESTR builder-integration question for the GVC team
 
 **From**: vibe-o-matic (Good Vibes Club hackathon submission)
-**Re**: Accepting VIBESTR as payment for a third-party service
-**Wallet for testing**: `0xac1e7beae9fcf9b4f294cd534cd0b1ae1ef44793` (holds 152,303 VIBESTR)
-**Intended treasury recipient**: `0xc93c375b022f0e707d211090d904f3266ccfce22`
+**TL;DR**: One specific ask — please add `0xc93c375b022f0e707d211090d904f3266ccfce22` to VIBESTR's recipient allowlist so we can accept VIBESTR as payment.
 
-## What we're building
+## The discovery
 
-vibe-o-matic is a hackathon project that turns user photos into Vibetown vinyl-figurine renders. We want **GVC holders to pay 99 VIBESTR per render**, with the full amount going to the GVC treasury — every render = buying pressure on $VIBESTR.
+We built a `transfer(treasury, 99 * 10^18 VIBESTR)` payment flow for vibe-o-matic and hit `InsufficientAllowance` reverts (`0x2f352531`). After probing, we found the cause: **VIBESTR's `_transfer` has a private internal recipient allowlist.** Transfers to addresses on the list succeed; transfers to any other address revert with `InsufficientAllowance` regardless of sender balance or allowance state.
 
-## What we found when implementing the payment flow
+Concrete proof:
 
-Our app calls `transfer(treasury, 99 * 10^18)` from the user's MetaMask. We expected vanilla ERC-20 behavior. Instead:
+| Tx | Sender | Recipient | Amount | Result |
+|---|---|---|---|---|
+| [`0xe3c0eb…d8805`](https://etherscan.io/tx/0xe3c0eb968884c637e4fa99a0dadc280510f8808ce262d0067c46cf64599d8805) | `0xac1e7b…44793` | `0x6b749c…22b4bd` (GVC game wallet, EOA) | 800 VIBESTR | ✅ succeeds |
+| simulated, identical sender + token + function | `0xac1e7b…44793` | `0xc93c37…cfce22` (vibe-o-matic treasury, EOA) | 99 VIBESTR | ❌ reverts `InsufficientAllowance` |
 
-1. **`transfer()` reverts with `InsufficientAllowance()`** (selector `0x2f352531`).
-   This made sense — VIBESTR's ABI shows a self-allowance system (`getTransferAllowance`, `increaseTransferAllowance`) that we hadn't seen before. So we wired our flow to call `increaseTransferAllowance` first.
+Both recipients are vanilla EOAs (no bytecode), so the difference can only be an internal allowlist check. We probed for a public getter (`isApprovedTarget`, `approvedRecipients`, `isWhitelisted`) — none exist on the contract.
 
-2. **`increaseTransferAllowance(uint256)` then reverts with `InvalidTarget()`** (selector `0x5a91834f`) for any amount, called from a normal user wallet that holds VIBESTR.
+## The ask
 
-Both confirmed via direct `simulateContract` calls against the deployed implementation (`0x0f8DEfAe8f0aad5fdcdb813ff04434a55eb9a260`) using the holder's address as the simulated caller.
+**Can `0xc93c375b022f0e707d211090d904f3266ccfce22` be added to VIBESTR's recipient allowlist?**
 
-### Other custom errors in the contract that suggest the intended design
+If yes, our entire payment flow works as-is with zero code changes — same vanilla ERC-20 `transfer()` we're already calling. If you need any of the following from us first, happy to provide:
+- Verification that we control the address (we can sign a message)
+- A short description of the use case (charging GVC holders 99 VIBESTR per Vibetown vinyl-figurine render of their photo, 100% to that treasury)
+- Anything else
 
-`OnlyHook`, `SeaportIsDisabled`, `SeaportListingAlreadyExists`, `Permit2AllowanceIsFixedAtInfinity`, `NFTPriceTooLow`, `NoETHToTwap` — these point at a strategy token built for Seaport / Permit2 / hook-based flows rather than free p2p transfers.
+If there's a **self-service mechanism** for builders to register a recipient (or a public list / form / Discord channel for these requests), even better — that'd unlock every future builder, not just us.
 
-### Builder-kit cross-check
+## Why this matters for the broader ecosystem
 
-We also checked [`brydisanto/gvc-builder-kit`](https://github.com/brydisanto/gvc-builder-kit) — the official builder kit treats VIBESTR exclusively as a **read-only data source** (DexScreener proxy for price/liquidity, balance-check badges). Zero references to `increaseTransferAllowance`, `getTransferAllowance`, Permit2, Seaport, or any other transfer/payment pattern. The kit's prompt cheatsheet only suggests display-side apps like "show the VIBESTR price" and "show my wallet's VIBESTR balance." So we don't think we're missing a documented integration path — it appears none has been published yet, which is exactly what this question is asking about.
+This appears to be the missing piece for VIBESTR-as-payment in builder apps. We checked [`brydisanto/gvc-builder-kit`](https://github.com/brydisanto/gvc-builder-kit) — the official kit treats VIBESTR exclusively as read-only DexScreener data (price/volume/balance). No transfer/payment patterns documented. So the answer you give us could become the basis for a "How to accept VIBESTR" section of the kit — every future builder benefits.
 
-## What we'd love guidance on
-
-1. **Is direct user-initiated `transfer()` of VIBESTR to arbitrary recipients ever expected to work?** Or is the contract intentionally non-transferable outside of marketplace/hook flows?
-2. **If transfers are gated by an approved-targets allowlist, can our treasury `0xc93c375b022f0e707d211090d904f3266ccfce22` be added?** Or is there a self-service registration pattern we're missing?
-3. **Is the intended payment integration through Seaport / Permit2 / a custom hook contract?** Pointers to any builder docs or example integrations would unblock us immediately.
-4. **Is there a separate ERC-20 we should use for builder integrations** (e.g. a "GVC bucks" or freely-transferable payment token), with VIBESTR reserved for in-protocol strategy operations?
-
-## Why this matters for the submission
-
-The hackathon thesis is *"humans pay GVC's currency for GVC-style art, every render fuels the GVC economy."* VIBESTR-as-payment is the on-thesis choice. Without it, we fall back to USDC (which works fine via x402, our agent rail) — but that's value leaking out of the GVC token economy, which is exactly what we wanted to avoid.
-
-A 30-second answer from anyone on the contract team unblocks us — even "VIBESTR isn't meant to be used this way, use $X instead" is a great answer. We'll happily integrate whatever the right path is.
-
-Thanks 🙏
-
----
-*Repro of the failing calls (paste into any node REPL with viem):*
+## Repro (optional, for the contract dev)
 
 ```js
 import { createPublicClient, http, parseAbi } from "viem";
@@ -54,26 +41,21 @@ const client = createPublicClient({
   chain: mainnet,
   transport: http("https://ethereum-rpc.publicnode.com"),
 });
-const abi = parseAbi([
-  "function increaseTransferAllowance(uint256)",
-  "function transfer(address,uint256) returns (bool)",
-]);
-const USER = "0xac1e7beae9fcf9b4f294cd534cd0b1ae1ef44793";
-const TREASURY = "0xc93c375b022f0e707d211090d904f3266ccfce22";
+const abi = parseAbi(["function transfer(address,uint256) returns (bool)"]);
 const VIBESTR = "0xd0cC2b0eFb168bFe1f94a948D8df70FA10257196";
+const USER = "0xac1e7beae9fcf9b4f294cd534cd0b1ae1ef44793";
 
-// Both of these revert:
-await client.simulateContract({
-  address: VIBESTR, abi,
-  functionName: "increaseTransferAllowance",
-  args: [99n * 10n ** 18n],
-  account: USER,
-}); // → InvalidTarget (0x5a91834f)
+// Works:
+await client.simulateContract({ address: VIBESTR, abi, functionName: "transfer",
+  args: ["0x6b749c62d907d7ef66e9438e231070070e22b4bd", 99n * 10n ** 18n], account: USER });
 
-await client.simulateContract({
-  address: VIBESTR, abi,
-  functionName: "transfer",
-  args: [TREASURY, 99n * 10n ** 18n],
-  account: USER,
-}); // → InsufficientAllowance (0x2f352531)
+// Reverts InsufficientAllowance (0x2f352531):
+await client.simulateContract({ address: VIBESTR, abi, functionName: "transfer",
+  args: ["0xc93c375b022f0e707d211090d904f3266ccfce22", 99n * 10n ** 18n], account: USER });
 ```
+
+## Related findings (for completeness)
+
+We also tested `increaseTransferAllowance(amount)` — it reverts with `InvalidTarget()` (`0x5a91834f`) for any caller / any amount, suggesting that function is restricted to internal callers (hooks / Seaport / factory). So self-allowance isn't the user-facing escape hatch either; the allowlist appears to be the only path.
+
+Thanks 🙏 — even a one-line "yes, added" or "no, here's the real path" unblocks our submission.
