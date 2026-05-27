@@ -25,14 +25,21 @@ import {
   prepareImage,
   resolveVibeifyParams,
 } from "@/lib/vibeify-render";
+import { facilitator } from "@coinbase/x402";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 const X402_VERSION = 1;
-const { verify, settle } = useFacilitator({
-  url: X402_FACILITATOR_URL as Resource,
-});
+// We use Coinbase CDP's hosted facilitator because the public x402.org
+// facilitator only supports Base Sepolia + a handful of testnets — Base
+// MAINNET requires the CDP facilitator. The `facilitator` export from
+// @coinbase/x402 packages the URL + createAuthHeaders() that signs each
+// request with a JWT built from CDP_API_KEY_ID + CDP_API_KEY_SECRET (env).
+// If those env vars are unset, verify() / settle() will throw at request
+// time with a clear error — caller is never charged because we always
+// verify before render and settle only after render success.
+const { verify, settle } = useFacilitator(facilitator);
 
 function buildRequirements(resource: Resource): PaymentRequirements[] {
   const atomic = processPriceToAtomicAmount(USDC_PRICE_DOLLARS, USDC_NETWORK);

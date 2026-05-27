@@ -82,9 +82,15 @@ export const USDC_NETWORK_CAIP = "eip155:8453" as const;
 export const USDC_PRICE_DOLLARS = "$0.69";
 export const USDC_RECIPIENT =
   "0xc93c375b022f0e707d211090d904f3266ccfce22" as const;
-// Public x402 facilitator (handles signature verification + on-chain
-// settlement so our server doesn't need a wallet or RPC). NOTE: the URL is
-// x402.org/facilitator, NOT facilitator.x402.org — the subdomain form does
-// not resolve. The same facilitator serves both Base Sepolia and Base
-// mainnet; no URL change needed when flipping networks.
-export const X402_FACILITATOR_URL = "https://x402.org/facilitator";
+// Coinbase CDP x402 facilitator URL — handles signature verification +
+// on-chain settlement so our server doesn't need a wallet or RPC.
+// We had to switch from the public x402.org facilitator because that one
+// only supports Base Sepolia + a handful of testnets; CDP's facilitator is
+// the production path for Base mainnet (and others).
+//
+// Auth: requests are signed with a JWT built by @coinbase/x402's
+// createAuthHeaders() using CDP_API_KEY_ID + CDP_API_KEY_SECRET env vars.
+// This constant is exposed in /api/vibeify/x402's GET discovery response
+// so agents know which facilitator we settle against.
+export const X402_FACILITATOR_URL =
+  "https://api.cdp.coinbase.com/platform/v2/x402";

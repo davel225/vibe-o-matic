@@ -80,11 +80,27 @@ nothing.
 |---|---|---|
 | `OPENAI_API_KEY` | (set) | gpt-4o-mini describer + x402 agent picker |
 | `BFL_API_KEY` | (set) | Flux 2 [pro] image generation |
+| `CDP_API_KEY_ID` | (set) | Coinbase CDP API key id — required for the x402 USDC facilitator to verify/settle on Base mainnet |
+| `CDP_API_KEY_SECRET` | (set) | Coinbase CDP API key secret — paired with the id above |
 | `VIBEIFY_ALLOW_BYPASS` | **unset** (or `0`) | Server-side gate for the test-mode bypass. Must be absent in Production; safe to set to `1` in Preview/Dev. |
 
-No private keys live in env. The server never holds a wallet — the x402
-facilitator handles all on-chain interactions; the VIBESTR route only verifies
-user-signed transactions on Ethereum mainnet via a public RPC.
+### How to provision the CDP keys
+
+1. Sign up / log in at https://portal.cdp.coinbase.com/
+2. Create a project (or use the default)
+3. Navigate to **API Keys** → **Create API Key**
+4. Pick the **x402** scope (or all scopes if it's a single-app key)
+5. Download / copy both the **Key ID** and **Key Secret** (the secret is only shown once)
+6. Add both to Vercel Production env vars
+
+The CDP facilitator gives you 1,000 free transactions per month — plenty
+of headroom for the hackathon and well beyond.
+
+No private keys for any wallet live in env. The server never holds a
+wallet — Coinbase's facilitator handles all on-chain interactions for
+the USDC rail using JWTs signed with the CDP keys above; the VIBESTR
+route only verifies user-signed transactions on Ethereum mainnet via a
+public RPC.
 
 ---
 
