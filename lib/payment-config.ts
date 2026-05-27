@@ -69,18 +69,22 @@ export function getSplitSummary(): string {
 export const CHAIN_ID = 1; // Ethereum mainnet
 export const RPC_URL = "https://ethereum-rpc.publicnode.com";
 
-// ── x402 / USDC payment rail (Base) ─────────────────────────────────
-// Default is Base Sepolia (testnet). Flip USDC_NETWORK to "base" and the
-// CAIP id below to "eip155:8453" before mainnet launch.
-
-export const USDC_NETWORK = "base-sepolia" as const;
-export const USDC_CHAIN_ID = 84532;
-export const USDC_NETWORK_CAIP = "eip155:84532" as const;
+// ── x402 / USDC payment rail (Base mainnet) ─────────────────────────
+// Live production config: Base mainnet, real USDC. Every call charges the
+// caller $0.69 real money. Treasury (USDC_RECIPIENT) is an EVM-network-
+// agnostic address — confirm you control it on Base mainnet before
+// accepting volume. To roll back to testnet, flip network/chainId/CAIP
+// in this block + the USDC contract address in lib/wallet.ts (the Sepolia
+// USDC is at 0x036CbD53842c5426634e7929541eC2318f3dCF7e).
+export const USDC_NETWORK = "base" as const;
+export const USDC_CHAIN_ID = 8453;
+export const USDC_NETWORK_CAIP = "eip155:8453" as const;
 export const USDC_PRICE_DOLLARS = "$0.69";
 export const USDC_RECIPIENT =
   "0xc93c375b022f0e707d211090d904f3266ccfce22" as const;
 // Public x402 facilitator (handles signature verification + on-chain
 // settlement so our server doesn't need a wallet or RPC). NOTE: the URL is
 // x402.org/facilitator, NOT facilitator.x402.org — the subdomain form does
-// not resolve. Confirmed live for Base Sepolia (eip155:84532).
+// not resolve. The same facilitator serves both Base Sepolia and Base
+// mainnet; no URL change needed when flipping networks.
 export const X402_FACILITATOR_URL = "https://x402.org/facilitator";

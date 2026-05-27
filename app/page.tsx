@@ -17,22 +17,29 @@ import {
   SPLIT_RECIPIENTS,
   TOTAL_VIBESTR,
   TOTAL_VIBESTR_RAW,
+  USDC_PRICE_DOLLARS,
   VIBESTR_DECIMALS,
 } from "@/lib/payment-config";
 import {
   connectWallet,
   ensureMainnet,
   getVibestrBalance,
+  getX402Fetch,
   payVibestrSplit,
   shortAddr,
   type PayProgress,
 } from "@/lib/wallet";
 
-// ── Payment rail intent ──────────────────────────────────────────────
-// The web UI is the HUMAN path → VIBESTR only. Every purchase is buying
-// pressure on the GVC token (90% treasury, 10% burn). AI agents pay via
-// USDC at /api/vibeify/x402 — a separate, machine-callable endpoint. The
-// two surfaces never overlap on purpose. See SUBMISSION.md and X402.md.
+// ── Payment rails ────────────────────────────────────────────────────
+// Two rails are exposed in the human UI:
+//   - USDC (active, default): Base mainnet via x402, gasless EIP-3009 signature.
+//   - VIBESTR (coming soon): Ethereum mainnet, GVC's native token. Currently
+//     disabled in the UI because VIBESTR enforces a private recipient
+//     allowlist inside its _transfer; our treasury hasn't been added yet
+//     (coordinating with the GVC team). The plumbing is fully in place —
+//     once allowlist add lands, the toggle's "soon" pill flips off.
+// Autonomous AI agents always use the USDC rail directly via /api/vibeify/x402.
+type PaymentRail = "usdc" | "vibestr";
 
 // ─────────────────────────────────────────────────────────────
 // Constants
@@ -143,6 +150,10 @@ export default function Home() {
   const [chainId, setChainId] = useState<number | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
   const [pendingHashes, setPendingHashes] = useState<Hex[]>([]);
+
+  // ── Payment rail ─────────────────────────────────────────
+  // Default to USDC since VIBESTR is gated on the allowlist add.
+  const [paymentRail, setPaymentRail] = useState<PaymentRail>("usdc");
 
   // ── Test-mode bypass ─────────────────────────────────────
   const [bypassAvailable, setBypassAvailable] = useState(false);
@@ -304,13 +315,19 @@ export default function Home() {
     }
 
     const testMode = bypassMode && bypassAvailable;
+    const usdcRail = paymentRail === "usdc" && !testMode;
+    const vibestrRail = paymentRail === "vibestr" && !testMode;
 
     if (!testMode) {
       if (!account) {
         toast.error("Connect your wallet first");
         return;
       }
-      if (balance !== null && balance < TOTAL_VIBESTR_RAW) {
+      if (
+        vibestrRail &&
+        balance !== null &&
+        balance < TOTAL_VIBESTR_RAW
+      ) {
         toast.error(
           `Need ${TOTAL_VIBESTR} VIBESTR — you have ${formatVibestr(balance)}`
         );
@@ -324,9 +341,9 @@ export default function Home() {
     setLastPrompt(null);
     setLastDescription(null);
 
-    // ── 1. VIBESTR payment: send the multi-tx split up front ──
+    // ── 1. VIBESTR rail only: send the multi-tx split up front ──
     let hashes: Hex[] = pendingHashes;
-    if (!testMode && hashes.length < SPLIT_RECIPIENTS.length) {
+    if (vibestrRail && hashes.length < SPLIT_RECIPIENTS.length) {
       setPaying(true);
       const payToast = toast.loading(
         hashes.length > 0
@@ -371,14 +388,36 @@ export default function Home() {
 
     if (testMode) {
       fd.set("bypass", "1");
-    } else {
+    } else if (vibestrRail) {
       fd.set("payer", account!);
       fd.set("txHashes", hashes.join(","));
     }
 
-    // ── 3. Submit to the VIBESTR endpoint ──
-    const endpoint = "/api/vibeify";
-    const fetcher: typeof fetch = globalThis.fetch;
+    // ── 3. Choose the right endpoint + fetch ──
+    // testMode → /api/vibeify with bypass (free)
+    // usdcRail → /api/vibeify/x402 with x402-fetch (real USDC payment)
+    // vibestrRail → /api/vibeify with on-chain VIBESTR txs verified server-side
+    let endpoint = "/api/vibeify";
+    let fetcher: typeof fetch = globalThis.fetch;
+
+    if (usdcRail) {
+      endpoint = "/api/vibeify/x402";
+      try {
+        setPaying(true);
+        const payToast = toast.loading(
+          `Sign ${USDC_PRICE_DOLLARS} USDC payment in your wallet…`
+        );
+        fetcher = (await getX402Fetch(account!)) as typeof fetch;
+        toast.dismiss(payToast);
+      } catch (e) {
+        toast.error((e as Error).message || "Could not prep USDC payment");
+        setGenerating(false);
+        setPaying(false);
+        return;
+      } finally {
+        setPaying(false);
+      }
+    }
 
     const genToast = toast.loading("Rendering Vibetown…");
     try {
@@ -461,13 +500,18 @@ export default function Home() {
   }, [history]);
 
   const wrongChainForVibestr =
-    account && chainId !== null && chainId !== CHAIN_ID;
+    paymentRail === "vibestr" &&
+    account &&
+    chainId !== null &&
+    chainId !== CHAIN_ID;
   const insufficientFunds =
+    paymentRail === "vibestr" &&
     balance !== null &&
     balance < TOTAL_VIBESTR_RAW &&
     !!account &&
     !wrongChainForVibestr;
-  const resumeAvailable = pendingHashes.length > 0;
+  const resumeAvailable =
+    paymentRail === "vibestr" && pendingHashes.length > 0;
   const testMode = bypassMode && bypassAvailable;
 
   const primaryDisabled =
@@ -480,11 +524,19 @@ export default function Home() {
     if (paying)
       return payProgress
         ? `Approve ${payProgress.recipient} (${payProgress.index + 1}/${payProgress.total})…`
+        : paymentRail === "usdc"
+        ? `Sign ${USDC_PRICE_DOLLARS} payment…`
         : "Approving…";
     if (generating) return "Generating…";
     if (testMode)
       return result ? "Test render another" : "Test render (free)";
     if (!account) return "Connect wallet to Vibe-ify";
+    if (paymentRail === "usdc")
+      return result
+        ? `Vibe-ify another · ${USDC_PRICE_DOLLARS}`
+        : `Vibe-ify it · ${USDC_PRICE_DOLLARS}`;
+    // VIBESTR-rail branches (effectively unreachable while VIBESTR is disabled
+    // in the UI, but kept for when the GVC allowlist add re-enables it).
     if (wrongChainForVibestr) return "Switch to Ethereum Mainnet";
     if (insufficientFunds)
       return `Need ${TOTAL_VIBESTR} VIBESTR (you have ${
@@ -752,14 +804,39 @@ export default function Home() {
               </div>
             )}
 
-            {/* VIBESTR pricing line — single rail, no toggle */}
+            {/* Payment rail toggle — USDC active, VIBESTR coming soon */}
             <div
-              className={`mt-3 flex items-center justify-center transition-opacity ${
-                testMode ? "opacity-30" : ""
+              className={`mt-3 flex items-center justify-center gap-2 transition-opacity ${
+                testMode ? "opacity-30 pointer-events-none" : ""
               }`}
             >
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-gvc-gold text-gvc-black text-[11px] font-display">
-                {TOTAL_VIBESTR.toString()} VIBESTR
+              <div className="inline-flex rounded-full bg-black/40 border border-white/[0.06] p-0.5">
+                <button
+                  onClick={() => setPaymentRail("usdc")}
+                  disabled={testMode}
+                  className={`px-3 py-1 rounded-full text-[11px] font-display transition-all ${
+                    paymentRail === "usdc"
+                      ? "bg-gvc-gold text-gvc-black"
+                      : "text-white/60 hover:text-white"
+                  }`}
+                >
+                  {USDC_PRICE_DOLLARS} USDC
+                </button>
+                <button
+                  // VIBESTR is gated on the GVC recipient allowlist being
+                  // updated. Until then, the button is purely informational.
+                  onClick={() =>
+                    toast(
+                      "VIBESTR rail goes live once the GVC team adds our treasury to the recipient allowlist. Coordinating now."
+                    )
+                  }
+                  className="px-3 py-1 rounded-full text-[11px] font-display text-white/40 cursor-not-allowed flex items-center gap-1.5"
+                >
+                  {TOTAL_VIBESTR.toString()} VIBESTR
+                  <span className="px-1.5 py-px rounded-full bg-pink-accent/20 text-pink-accent text-[9px] uppercase tracking-wider">
+                    soon
+                  </span>
+                </button>
               </div>
             </div>
             <div
@@ -767,16 +844,28 @@ export default function Home() {
                 testMode ? "opacity-30" : "text-white/40"
               }`}
             >
-              <span>Ethereum · 1 sig per render</span>
-              {SPLIT_RECIPIENTS.map((r, i) => (
-                <span key={r.address} className="flex items-center gap-1">
+              {paymentRail === "usdc" ? (
+                <>
+                  <span>Base</span>
                   <span className="text-white/20">·</span>
-                  <span className="text-white/60">
-                    {(Number(TOTAL_VIBESTR) * r.percent) / 100}
-                  </span>
-                  <span>→ {r.name}</span>
-                </span>
-              ))}
+                  <span>1 signature</span>
+                  <span className="text-white/20">·</span>
+                  <span>gasless (x402)</span>
+                </>
+              ) : (
+                <>
+                  <span>Ethereum · 1 sig per render</span>
+                  {SPLIT_RECIPIENTS.map((r) => (
+                    <span key={r.address} className="flex items-center gap-1">
+                      <span className="text-white/20">·</span>
+                      <span className="text-white/60">
+                        {(Number(TOTAL_VIBESTR) * r.percent) / 100}
+                      </span>
+                      <span>→ {r.name}</span>
+                    </span>
+                  ))}
+                </>
+              )}
             </div>
 
             {/* Test-mode toggle (only renders when server allows bypass) */}

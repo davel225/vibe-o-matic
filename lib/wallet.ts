@@ -9,7 +9,7 @@ import {
   publicActions,
   type Hex,
 } from "viem";
-import { baseSepolia, mainnet } from "viem/chains";
+import { base, mainnet } from "viem/chains";
 import { wrapFetchWithPayment } from "x402-fetch";
 import {
   CHAIN_ID,
@@ -79,8 +79,8 @@ export async function ensureMainnet() {
   await ensureChain(CHAIN_ID, "Ethereum Mainnet");
 }
 
-export async function ensureBaseSepolia() {
-  await ensureChain(USDC_CHAIN_ID, "Base Sepolia");
+export async function ensureBase() {
+  await ensureChain(USDC_CHAIN_ID, "Base");
 }
 
 async function ensureChain(wantChainId: number, label: string) {
@@ -194,19 +194,21 @@ const usdcAbi = parseAbi([
   "function balanceOf(address) view returns (uint256)",
 ]);
 
-// USDC on Base Sepolia (Circle's deployment)
-const USDC_BASE_SEPOLIA = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const;
+// USDC on Base mainnet (Circle's deployment).
+// To roll back to Base Sepolia testnet, swap to 0x036CbD53842c5426634e7929541eC2318f3dCF7e
+// and flip the chain constants in lib/payment-config.ts back to base-sepolia/84532.
+const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 
 const basePublicClient = createPublicClient({
-  chain: baseSepolia,
+  chain: base,
   transport: http(),
 });
 
-export async function getUsdcBalanceBaseSepolia(
+export async function getUsdcBalanceBase(
   addr: `0x${string}`
 ): Promise<bigint> {
   return basePublicClient.readContract({
-    address: USDC_BASE_SEPOLIA,
+    address: USDC_BASE,
     abi: usdcAbi,
     functionName: "balanceOf",
     args: [addr],
@@ -215,21 +217,20 @@ export async function getUsdcBalanceBaseSepolia(
 
 /**
  * Build a fetch that automatically handles 402 Payment Required responses
- * against the connected browser wallet on Base Sepolia. The user signs an
+ * against the connected browser wallet on Base mainnet. The user signs an
  * EIP-3009 transferWithAuthorization off-chain — no gas, no second tx.
  *
- * NOTE: This helper is currently DORMANT. The web UI removed the USDC payment
- * toggle (web UI is VIBESTR-only by design — see SUBMISSION.md). It's kept
- * here because the agentic story might bring it back, and because the
- * server-side x402 route + the headless agent test script remain live.
- * If you re-enable an in-browser USDC flow, this function is the entry point.
+ * The wrapper enforces a 1 USDC per-call ceiling (1_000_000 atomic units)
+ * as a client-side safety rail above the server's $0.69 quote. If the
+ * server ever asks for more than 1 USDC, the wrapper refuses to sign
+ * before MetaMask is even prompted.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getX402Fetch(payer: `0x${string}`): Promise<any> {
-  await ensureBaseSepolia();
+  await ensureBase();
   const wallet = createWalletClient({
     account: payer,
-    chain: baseSepolia,
+    chain: base,
     transport: custom(eth()),
   }).extend(publicActions);
   // Max value the wrapper will auto-pay without prompting: 1 USDC (1_000_000 base units).

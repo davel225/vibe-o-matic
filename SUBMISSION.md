@@ -193,7 +193,7 @@ Full roadmap, integration plan, and compatibility questions in [`FUTURE.md`](./F
 
 ## Why we're proud of this
 
-1. **It's actually shipping**, not just a demo video. Both payment rails work end-to-end on real networks (Ethereum mainnet for VIBESTR, Base Sepolia for USDC during the hackathon — flipping to Base mainnet at launch).
+1. **It's actually shipping**, not just a demo video. The x402 USDC rail is live on **Base mainnet** for both the web UI (humans) and the agent endpoint, settling real $0.69 USDC payments on-chain per render. The VIBESTR rail is wired and waiting on the GVC team's recipient-allowlist addition for our treasury.
 2. **The agentic x402 flow is a genuine first-of-kind**. We're not just "an API behind Stripe." We're a service that an autonomous AI agent can discover, agree to a price with, pay for, and consume — in one HTTP round-trip. That's the next decade of web monetization.
 3. **The OpenSea integration is a love letter to the marketplace** that built this whole NFT ecosystem. Brand-correct neon signage, exact hex codes, baked into one of the canonical scenes.
 4. **The future is honestly costed and scoped**. We're not handwaving — `FUTURE.md` is a partnership proposal with a 1–3 day integration estimate.

@@ -2,8 +2,8 @@
 // End-to-end smoke test for /api/vibeify/x402 in agent mode.
 //
 // Flow:
-//   1. Read AGENT_PRIVATE_KEY from env (a Base Sepolia private key with a few
-//      cents of test USDC — see https://faucet.circle.com/ for a faucet).
+//   1. Read AGENT_PRIVATE_KEY from env (a Base MAINNET private key with at
+//      least $0.69 USDC — this is the live production endpoint, real money).
 //   2. Wrap fetch with x402-fetch so the two-step 402 → pay → retry handshake
 //      is transparent.
 //   3. POST a multipart form with the image + agentMode=1 + optional intent.
@@ -23,7 +23,7 @@ import { basename, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import { createWalletClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { wrapFetchWithPayment } from "x402-fetch";
 
@@ -39,9 +39,9 @@ const intent = args.slice(1).join(" ");
 
 if (!PRIVATE_KEY) {
   console.error(
-    "ERROR: set AGENT_PRIVATE_KEY=0x... in env (Base Sepolia wallet with some test USDC)."
+    "ERROR: set AGENT_PRIVATE_KEY=0x... in env (Base mainnet wallet with ≥$0.69 USDC)."
   );
-  console.error("Faucets: https://faucet.circle.com/ + https://www.alchemy.com/faucets/base-sepolia");
+  console.error("Acquire USDC on Base mainnet via any major bridge or DEX.");
   process.exit(1);
 }
 if (!imagePath) {
@@ -53,7 +53,7 @@ if (!imagePath) {
 const account = privateKeyToAccount(PRIVATE_KEY);
 const wallet = createWalletClient({
   account,
-  chain: baseSepolia,
+  chain: base,
   transport: http(),
 });
 // Per-call spend cap in atomic USDC units (6 decimals).
