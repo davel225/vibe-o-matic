@@ -23,6 +23,7 @@ import {
 import {
   connectWallet,
   ensureMainnet,
+  getUsdcBalanceBase,
   getVibestrBalance,
   getX402Fetch,
   payVibestrSplit,
@@ -148,7 +149,11 @@ export default function Home() {
   // ── Wallet state ─────────────────────────────────────────
   const [account, setAccount] = useState<`0x${string}` | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
+  /** VIBESTR balance (Ethereum mainnet, 18 decimals). */
   const [balance, setBalance] = useState<bigint | null>(null);
+  /** USDC balance on Base mainnet (6 decimals). Read from a public RPC so it
+   *  reflects on-chain reality regardless of MetaMask's currently-selected chain. */
+  const [usdcBalance, setUsdcBalance] = useState<bigint | null>(null);
   const [pendingHashes, setPendingHashes] = useState<Hex[]>([]);
 
   // ── Payment rail ─────────────────────────────────────────
@@ -205,6 +210,8 @@ export default function Home() {
   }, []);
 
   // ── Refresh VIBESTR balance when account/chain changes ───
+  // VIBESTR is Ethereum-mainnet-only, so we gate the read on chainId == CHAIN_ID
+  // to avoid spamming the public RPC when MetaMask is on a different chain.
   useEffect(() => {
     if (!account || chainId !== CHAIN_ID) {
       setBalance(null);
@@ -212,6 +219,18 @@ export default function Home() {
     }
     getVibestrBalance(account).then(setBalance).catch(() => setBalance(null));
   }, [account, chainId]);
+
+  // ── Refresh USDC (Base mainnet) balance when account changes ───
+  // Reads via a public Base RPC, so it works regardless of MetaMask's
+  // currently-selected chain. Refetched after every successful render in
+  // the vibeify() handler so the displayed balance decrements live.
+  useEffect(() => {
+    if (!account) {
+      setUsdcBalance(null);
+      return;
+    }
+    getUsdcBalanceBase(account).then(setUsdcBalance).catch(() => setUsdcBalance(null));
+  }, [account]);
 
   // ── Image source handlers ────────────────────────────────
   function setSource(url: string, label: string, remote: boolean) {
@@ -457,11 +476,14 @@ export default function Home() {
         } catch {}
       }
 
-      // Refresh balance after payment lands. Skip in test mode where there's
+      // Refresh balances after payment lands. Skip in test mode where there's
       // no connected wallet (account is null and there's no balance to refetch).
       if (account) {
         getVibestrBalance(account)
           .then(setBalance)
+          .catch(() => {});
+        getUsdcBalanceBase(account)
+          .then(setUsdcBalance)
           .catch(() => {});
       }
     } catch (e) {
@@ -595,6 +617,7 @@ export default function Home() {
             <WalletPill
               account={account}
               balance={balance}
+              usdcBalance={usdcBalance}
               wrongChain={!!wrongChainForVibestr}
               onConnect={handleConnect}
             />
@@ -723,6 +746,71 @@ export default function Home() {
               )}
             </div>
 
+            {/* Payment rail selector — sits directly below the preview so the
+                user sees their payment choice before the Vibe-ify CTA.
+                VIBESTR on the left (disabled — pending GVC allowlist add),
+                USDC on the right (active default). */}
+            <div
+              className={`mt-4 flex items-center justify-center gap-2 transition-opacity ${
+                testMode ? "opacity-30 pointer-events-none" : ""
+              }`}
+            >
+              <div className="inline-flex rounded-full bg-black/40 border border-white/[0.06] p-0.5">
+                <button
+                  onClick={() =>
+                    toast(
+                      "VIBESTR rail goes live once the GVC team adds our treasury to the recipient allowlist. Coordinating now."
+                    )
+                  }
+                  className="px-3 py-1 rounded-full text-[11px] font-display text-white/40 cursor-not-allowed flex items-center gap-1.5"
+                >
+                  {TOTAL_VIBESTR.toString()} VIBESTR
+                  <span className="px-1.5 py-px rounded-full bg-pink-accent/20 text-pink-accent text-[9px] uppercase tracking-wider">
+                    soon
+                  </span>
+                </button>
+                <button
+                  onClick={() => setPaymentRail("usdc")}
+                  disabled={testMode}
+                  className={`px-3 py-1 rounded-full text-[11px] font-display transition-all ${
+                    paymentRail === "usdc"
+                      ? "bg-gvc-gold text-gvc-black"
+                      : "text-white/60 hover:text-white"
+                  }`}
+                >
+                  {USDC_PRICE_DOLLARS} USDC
+                </button>
+              </div>
+            </div>
+            <div
+              className={`mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[10px] font-body transition-opacity ${
+                testMode ? "opacity-30" : "text-white/40"
+              }`}
+            >
+              {paymentRail === "usdc" ? (
+                <>
+                  <span>Base</span>
+                  <span className="text-white/20">·</span>
+                  <span>1 signature</span>
+                  <span className="text-white/20">·</span>
+                  <span>gasless (x402)</span>
+                </>
+              ) : (
+                <>
+                  <span>Ethereum · 1 sig per render</span>
+                  {SPLIT_RECIPIENTS.map((r) => (
+                    <span key={r.address} className="flex items-center gap-1">
+                      <span className="text-white/20">·</span>
+                      <span className="text-white/60">
+                        {(Number(TOTAL_VIBESTR) * r.percent) / 100}
+                      </span>
+                      <span>→ {r.name}</span>
+                    </span>
+                  ))}
+                </>
+              )}
+            </div>
+
             <div className="flex gap-3 mt-5">
               <button
                 onClick={vibeify}
@@ -803,70 +891,6 @@ export default function Home() {
                 )}
               </div>
             )}
-
-            {/* Payment rail toggle — USDC active, VIBESTR coming soon */}
-            <div
-              className={`mt-3 flex items-center justify-center gap-2 transition-opacity ${
-                testMode ? "opacity-30 pointer-events-none" : ""
-              }`}
-            >
-              <div className="inline-flex rounded-full bg-black/40 border border-white/[0.06] p-0.5">
-                <button
-                  onClick={() => setPaymentRail("usdc")}
-                  disabled={testMode}
-                  className={`px-3 py-1 rounded-full text-[11px] font-display transition-all ${
-                    paymentRail === "usdc"
-                      ? "bg-gvc-gold text-gvc-black"
-                      : "text-white/60 hover:text-white"
-                  }`}
-                >
-                  {USDC_PRICE_DOLLARS} USDC
-                </button>
-                <button
-                  // VIBESTR is gated on the GVC recipient allowlist being
-                  // updated. Until then, the button is purely informational.
-                  onClick={() =>
-                    toast(
-                      "VIBESTR rail goes live once the GVC team adds our treasury to the recipient allowlist. Coordinating now."
-                    )
-                  }
-                  className="px-3 py-1 rounded-full text-[11px] font-display text-white/40 cursor-not-allowed flex items-center gap-1.5"
-                >
-                  {TOTAL_VIBESTR.toString()} VIBESTR
-                  <span className="px-1.5 py-px rounded-full bg-pink-accent/20 text-pink-accent text-[9px] uppercase tracking-wider">
-                    soon
-                  </span>
-                </button>
-              </div>
-            </div>
-            <div
-              className={`mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[10px] font-body transition-opacity ${
-                testMode ? "opacity-30" : "text-white/40"
-              }`}
-            >
-              {paymentRail === "usdc" ? (
-                <>
-                  <span>Base</span>
-                  <span className="text-white/20">·</span>
-                  <span>1 signature</span>
-                  <span className="text-white/20">·</span>
-                  <span>gasless (x402)</span>
-                </>
-              ) : (
-                <>
-                  <span>Ethereum · 1 sig per render</span>
-                  {SPLIT_RECIPIENTS.map((r) => (
-                    <span key={r.address} className="flex items-center gap-1">
-                      <span className="text-white/20">·</span>
-                      <span className="text-white/60">
-                        {(Number(TOTAL_VIBESTR) * r.percent) / 100}
-                      </span>
-                      <span>→ {r.name}</span>
-                    </span>
-                  ))}
-                </>
-              )}
-            </div>
 
             {/* Test-mode toggle (only renders when server allows bypass) */}
             {bypassAvailable && (
@@ -1276,11 +1300,13 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 function WalletPill({
   account,
   balance,
+  usdcBalance,
   wrongChain,
   onConnect,
 }: {
   account: `0x${string}` | null;
   balance: bigint | null;
+  usdcBalance: bigint | null;
   wrongChain: boolean;
   onConnect: () => void;
 }) {
@@ -1304,6 +1330,11 @@ function WalletPill({
       </button>
     );
   }
+  // USDC has 6 decimals — quick inline format (avoids an extra import).
+  const usdcText =
+    usdcBalance !== null
+      ? `$${(Number(usdcBalance) / 1_000_000).toFixed(2)} USDC`
+      : "…";
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gvc-dark border border-white/[0.08]">
       <span className="w-1.5 h-1.5 rounded-full bg-gvc-green" />
@@ -1312,6 +1343,8 @@ function WalletPill({
       <span className="font-display text-xs text-gvc-gold">
         {balance !== null ? `${formatVibestr(balance)} VIBESTR` : "…"}
       </span>
+      <span className="text-white/20">·</span>
+      <span className="font-display text-xs text-gvc-gold">{usdcText}</span>
     </div>
   );
 }
