@@ -39,7 +39,14 @@ const X402_VERSION = 1;
 // If those env vars are unset, verify() / settle() will throw at request
 // time with a clear error — caller is never charged because we always
 // verify before render and settle only after render success.
-const { verify, settle } = useFacilitator(facilitator);
+//
+// The cast is because @coinbase/x402's facilitator.url is typed as
+// `string | undefined` (defensive against env override) but v1 x402's
+// useFacilitator() expects a Resource template-literal type. Runtime
+// shape is correct — the cast just appeases the type checker.
+const { verify, settle } = useFacilitator(
+  facilitator as Parameters<typeof useFacilitator>[0]
+);
 
 function buildRequirements(resource: Resource): PaymentRequirements[] {
   const atomic = processPriceToAtomicAmount(USDC_PRICE_DOLLARS, USDC_NETWORK);
