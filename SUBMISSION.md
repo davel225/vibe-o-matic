@@ -31,7 +31,7 @@ A judge or GVC holder can:
 5. Choose orientation (square / portrait / landscape)
 6. Click **Vibeify** → connect MetaMask → sign 99 VIBESTR payment → ~40s later, a Vibetown render of themselves
 
-VIBESTR is a non-standard ERC-20 with a built-in self-allowance pattern (direct transfers require pre-authorizing a spending budget). Our wallet helper detects insufficient allowance and prepends a one-time `increaseTransferAllowance` setup tx that authorizes the wallet's full VIBESTR balance — so the first-ever render asks for 2 signatures (setup + transfer) and every subsequent render is a single 1-tx flow.
+VIBESTR enforces a private recipient allowlist inside `_transfer` — transfers to addresses on the list succeed; transfers to any other recipient revert with `InsufficientAllowance` regardless of sender balance. The vibe-o-matic treasury (`0xc93c375b…cfce22`) is coordinated with the GVC team for allowlist addition. Once added, the same plain-ERC-20 `transfer()` we already call works end-to-end — no further code changes required. While the addition is pending, the web UI's test-mode bypass + the x402 USDC agent rail continue to demo the full pipeline.
 
 The web UI is single-purpose: VIBESTR only, manual scene/action/mood selection, no toggles or modes. Clean human flow.
 

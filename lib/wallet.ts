@@ -25,17 +25,24 @@ const erc20Abi = parseAbi([
   "function transfer(address to, uint256 amount) returns (bool)",
 ]);
 
-// VIBESTR (ViBeStrategy) is a non-standard ERC-20: direct transfers from your
-// own wallet require a pre-set "transfer allowance" — a self-imposed spending
-// budget. transfer() reverts with `InsufficientAllowance` if the sender hasn't
-// authorized enough. Both allowance functions operate on msg.sender (no
-// address parameter), so to read an arbitrary user's allowance via eth_call
-// we have to pass `account` in readContract — viem sets that on the `from`
-// field, which the contract sees as msg.sender.
-const vibestrAllowanceAbi = parseAbi([
-  "function getTransferAllowance() view returns (uint256)",
-  "function increaseTransferAllowance(uint256 amountAllowed)",
-]);
+// VIBESTR transfer gating note
+// ─────────────────────────────
+// VIBESTR (ViBeStrategy, 0xd0cC2b…7196) is not a free p2p ERC-20: its internal
+// _transfer enforces a private RECIPIENT ALLOWLIST. Vanilla `transfer(to,
+// amount)` succeeds if `to` is on the allowlist and reverts with
+// InsufficientAllowance(0x2f352531) otherwise — regardless of sender balance
+// or any self-allowance. The contract exposes no public getter for the list.
+//
+// Proven via tx 0xe3c0eb968884c637e4fa99a0dadc280510f8808ce262d0067c46cf64599d8805
+// (an 800 VIBESTR transfer to a GVC game wallet that succeeded) compared to
+// our same-shape transfer to USDC_RECIPIENT which reverts.
+//
+// → Our treasury USDC_RECIPIENT (see payment-config.ts) needs to be added to
+//   the allowlist by the GVC team. Once added, the plain ERC-20 transfer
+//   below will Just Work — no preflight, no allowance dance, no code change.
+// → While we're awaiting the allowlist addition, every VIBESTR payment attempt
+//   will revert. The web UI's test-mode bypass remains the unblocked demo
+//   path, and the x402 USDC rail handles autonomous-agent payments fully.
 
 declare global {
   interface Window {
@@ -124,25 +131,6 @@ export async function getVibestrBalance(addr: `0x${string}`): Promise<bigint> {
   }) as Promise<bigint>;
 }
 
-/**
- * Read the caller's current VIBESTR transfer allowance — a self-imposed
- * spending budget that VIBESTR's non-standard ERC-20 requires before any
- * direct transfer succeeds. See vibestrAllowanceAbi comment for context.
- */
-export async function getVibestrTransferAllowance(
-  addr: `0x${string}`
-): Promise<bigint> {
-  // getTransferAllowance() uses msg.sender internally — passing `account`
-  // here populates eth_call's `from` field so the contract resolves it
-  // to the user's address rather than the zero address.
-  return publicClient.readContract({
-    address: VIBESTR_ADDRESS,
-    abi: vibestrAllowanceAbi,
-    functionName: "getTransferAllowance",
-    account: addr,
-  }) as Promise<bigint>;
-}
-
 export type PayProgress = {
   index: number;
   total: number;
@@ -152,17 +140,14 @@ export type PayProgress = {
 /**
  * Pay the VIBESTR split (currently a single 100%-to-treasury transfer).
  *
- * VIBESTR-specific: before the transfer, we check the caller's current
- * `getTransferAllowance(payer)`. If it's below TOTAL_VIBESTR_RAW, we
- * prepend an `increaseTransferAllowance(balance)` tx — sized to the
- * caller's full VIBESTR balance so a one-time setup covers many future
- * renders. Once set, allowance persists across renders until it's
- * drained by transfers, at which point we top up again automatically.
+ * This is a plain ERC-20 `transfer()` per recipient. Whether it succeeds
+ * depends on the recipient being on VIBESTR's internal allowlist — see
+ * the long comment above `erc20Abi` for the full story. Code path is
+ * deliberately minimal so that the moment the GVC team adds our treasury
+ * to the allowlist, payments start working with zero further changes.
  *
- * `existingHashes` lets the caller resume after a mid-flow failure:
- * pass any tx hashes already collected; only the remaining steps will
- * be re-attempted. Note: the allowance tx is NOT counted in the returned
- * hashes (server verifies transfers only, not allowance setup).
+ * `existingHashes` lets the caller resume after a mid-flow failure: pass
+ * any tx hashes already collected; only the remaining recipients are sent.
  */
 export async function payVibestrSplit(
   payer: `0x${string}`,
@@ -178,35 +163,6 @@ export async function payVibestrSplit(
   });
 
   const amounts = getSplitAmounts();
-  const totalNeeded = amounts.reduce((s, a) => s + a, 0n);
-
-  // ── Allowance preflight (only if first transfer hasn't gone yet) ──
-  // If we're resuming a partial payment, the allowance already exists by
-  // definition (an earlier transfer succeeded), so we skip this step.
-  if (existingHashes.length === 0) {
-    const current = await getVibestrTransferAllowance(payer);
-    if (current < totalNeeded) {
-      const balance = await getVibestrBalance(payer);
-      // increaseTransferAllowance ADDS to current — passing `balance` puts the
-      // new ceiling at (current + balance), comfortably above any single render
-      // and giving roughly `balance / 99` renders before the next top-up.
-      onProgress({
-        index: 0,
-        total: SPLIT_RECIPIENTS.length + 1,
-        recipient: "Transfer allowance (1-time setup)",
-      });
-      const allowanceHash = await walletClient.writeContract({
-        address: VIBESTR_ADDRESS,
-        abi: vibestrAllowanceAbi,
-        functionName: "increaseTransferAllowance",
-        args: [balance],
-      });
-      // Wait for inclusion so the subsequent transfer sees the updated state.
-      await publicClient.waitForTransactionReceipt({ hash: allowanceHash });
-    }
-  }
-
-  // ── Split transfers ──
   const startIndex = existingHashes.length;
   const collected: Hex[] = [...existingHashes];
 

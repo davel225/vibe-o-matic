@@ -99,11 +99,13 @@ Recipient address in `SPLIT_RECIPIENTS`:
 
 VIBESTR contract on mainnet: `0xd0cC2b0eFb168bFe1f94a948D8df70FA10257196`
 
-VIBESTR is a non-standard ERC-20 — direct transfers require a pre-set
-`increaseTransferAllowance`. `lib/wallet.ts` handles this transparently
-(checks `getTransferAllowance`, prepends an allowance-setup tx sized to the
-caller's full balance if insufficient). First-ever render = 2 sigs; every
-subsequent render = 1 sig. No user action needed.
+VIBESTR is not a free p2p ERC-20: its internal `_transfer` enforces a
+private recipient allowlist. Transfers to allowlisted addresses succeed;
+any other recipient reverts with `InsufficientAllowance` regardless of
+sender balance. Before launch, **confirm the GVC team has added our
+treasury to the allowlist**. Test by sending 1 VIBESTR from any holder
+wallet to the treasury — if it succeeds, we're live. If it reverts, the
+addition hasn't happened yet and paid renders will fail.
 
 ### USDC (Base mainnet)
 - Recipient: `USDC_RECIPIENT` in `lib/payment-config.ts` → currently `0xc93c375b022f0e707d211090d904f3266ccfce22`
