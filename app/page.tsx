@@ -972,12 +972,13 @@ export default function Home() {
 
           </motion.section>
 
-          {/* Controls */}
+          {/* Controls — flex-col so the last panel can absorb extra vertical
+              space and the right column matches the preview's height. */}
           <motion.aside
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="space-y-4"
+            className="flex flex-col gap-4"
           >
             <Panel title="1. Your image">
               {sourceUrl && (
@@ -1144,7 +1145,7 @@ export default function Home() {
               )}
             </Panel>
 
-            <Panel title="3. Action & mood (optional)">
+            <Panel title="3. Action & mood (optional)" className="flex-1">
               <p className="text-[10px] font-body uppercase tracking-wider text-white/40 mb-1.5">
                 Action
               </p>
@@ -1230,16 +1231,25 @@ export default function Home() {
           </motion.aside>
         </div>
 
-        {/* ── Stats ──────────────────────────────────────── */}
+        {/* ── Agent API — full-width CTA for autonomous integrations ─── */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.22 }}
+          className="mt-6"
+        >
+          <AgentEndpointCard />
+        </motion.section>
+
+        {/* ── Stats row ─────────────────────────────────────────────── */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="grid md:grid-cols-3 gap-4 mt-6 items-stretch"
+          className="grid md:grid-cols-2 gap-4 mt-4 items-stretch"
         >
           <Stat label="Total renders" value={totalGens} />
           <Stat label="Last render" valueText={lastGenAgo} />
-          <AgentEndpointCard />
         </motion.section>
 
         {/* GVC stats kept as a small footer line (not the headline) */}
@@ -1332,9 +1342,19 @@ export default function Home() {
 // Small components
 // ─────────────────────────────────────────────────────────────
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({
+  title,
+  children,
+  className = "",
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="rounded-2xl bg-gvc-dark border border-white/[0.08] p-5">
+    <div
+      className={`rounded-2xl bg-gvc-dark border border-white/[0.08] p-5 ${className}`}
+    >
       <p className="font-display text-sm text-white mb-3">{title}</p>
       {children}
     </div>
@@ -1447,9 +1467,9 @@ node scripts/test-x402-agent.mjs \\
   };
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-gvc-dark to-black border border-gvc-gold/30 p-6 flex flex-col gap-4 shadow-[0_0_40px_rgba(255,224,72,0.05)]">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
+    <div className="rounded-2xl bg-gradient-to-br from-gvc-dark to-black border border-gvc-gold/30 p-6 shadow-[0_0_40px_rgba(255,224,72,0.05)]">
+      {/* Header spans the whole width */}
+      <div className="flex items-center justify-between gap-2 mb-4">
         <p className="font-display text-[11px] uppercase tracking-[0.18em] text-gvc-gold flex items-center gap-1.5">
           <span className="text-base">🤖</span>
           Agent API
@@ -1464,59 +1484,73 @@ node scripts/test-x402-agent.mjs \\
         </a>
       </div>
 
-      {/* What an agent does, in plain language */}
-      <div>
-        <p className="text-[9px] font-body uppercase tracking-wider text-white/30 mb-1.5">
-          How it works
-        </p>
-        <ol className="space-y-1 text-[11px] font-body text-white/70 leading-snug">
-          <li className="flex gap-2">
-            <span className="text-gvc-gold/70 font-display">1.</span>
-            <span>Agent sends a photo + free-text intent</span>
-          </li>
-          <li className="flex gap-2">
-            <span className="text-gvc-gold/70 font-display">2.</span>
-            <span>Agent signs one gasless USDC authorization ($0.69)</span>
-          </li>
-          <li className="flex gap-2">
-            <span className="text-gvc-gold/70 font-display">3.</span>
-            <span>~40s later, image returned + USDC settled on-chain</span>
-          </li>
-        </ol>
-      </div>
+      {/* Three-column body for the full-width layout. Stacks on mobile. */}
+      <div className="grid md:grid-cols-3 gap-4">
+        {/* Column 1 — How it works */}
+        <div className="flex flex-col gap-1.5">
+          <p className="text-[9px] font-body uppercase tracking-wider text-white/30">
+            How it works
+          </p>
+          <ol className="space-y-1.5 text-[11px] font-body text-white/70 leading-snug">
+            <li className="flex gap-2">
+              <span className="text-gvc-gold/70 font-display">1.</span>
+              <span>Agent sends a photo + free-text intent</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-gvc-gold/70 font-display">2.</span>
+              <span>Agent signs one gasless USDC authorization ($0.69)</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-gvc-gold/70 font-display">3.</span>
+              <span>~40s later, image returned + USDC settled on-chain</span>
+            </li>
+          </ol>
+        </div>
 
-      {/* Endpoint */}
-      <div className="rounded-lg bg-black/50 border border-white/[0.06] px-3 py-2">
-        <p className="text-[9px] font-body uppercase tracking-wider text-white/30 mb-0.5">
-          Endpoint
-        </p>
-        <code className="font-mono text-[12px] text-gvc-gold break-all leading-tight">
-          POST /api/vibeify/x402
-        </code>
-        <p className="text-[10px] font-body text-white/40 mt-1">
-          Base mainnet · x402 / EIP-3009 · no API key required
-        </p>
-      </div>
+        {/* Column 2 — Endpoint */}
+        <div className="flex flex-col gap-1.5">
+          <p className="text-[9px] font-body uppercase tracking-wider text-white/30">
+            Endpoint
+          </p>
+          <div className="rounded-lg bg-black/50 border border-white/[0.06] px-3 py-2 flex-1">
+            <code className="font-mono text-[12px] text-gvc-gold break-all leading-tight block">
+              POST /api/vibeify/x402
+            </code>
+            <p className="text-[10px] font-body text-white/40 mt-1.5">
+              Base mainnet · x402 / EIP-3009
+            </p>
+            <p className="text-[10px] font-body text-white/40">
+              No API key required
+            </p>
+          </div>
+        </div>
 
-      {/* Spacer pushes buttons to the bottom of the card */}
-      <div className="flex-1" />
-
-      {/* Action buttons — labelled by what the user GETS, not by format */}
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={() => copy(discoverySnippet, "Discovery curl")}
-          title="One curl command that shows the endpoint's current price quote."
-          className="text-[11px] font-body px-3 py-2 rounded-lg bg-black/40 border border-white/[0.08] text-white/70 hover:border-gvc-gold/40 hover:text-gvc-gold transition-all"
-        >
-          See the price
-        </button>
-        <button
-          onClick={() => copy(runSnippet, "Run script")}
-          title="Multi-line annotated setup + first render command. Paste, read the comments, fill in your key + photo, run."
-          className="text-[11px] font-body px-3 py-2 rounded-lg bg-gvc-gold/15 border border-gvc-gold/40 text-gvc-gold hover:bg-gvc-gold/25 transition-all"
-        >
-          Run a render
-        </button>
+        {/* Column 3 — Actions */}
+        <div className="flex flex-col gap-1.5">
+          <p className="text-[9px] font-body uppercase tracking-wider text-white/30">
+            Try it
+          </p>
+          <button
+            onClick={() => copy(discoverySnippet, "Discovery curl")}
+            title="One curl command that shows the endpoint's current price quote."
+            className="text-[11px] font-body px-3 py-2 rounded-lg bg-black/40 border border-white/[0.08] text-white/70 hover:border-gvc-gold/40 hover:text-gvc-gold transition-all text-left"
+          >
+            See the price
+            <span className="block text-[9px] text-white/40 mt-0.5">
+              Discovery curl
+            </span>
+          </button>
+          <button
+            onClick={() => copy(runSnippet, "Run script")}
+            title="Multi-line annotated setup + first render command. Paste, read the comments, fill in your key + photo, run."
+            className="text-[11px] font-body px-3 py-2 rounded-lg bg-gvc-gold/15 border border-gvc-gold/40 text-gvc-gold hover:bg-gvc-gold/25 transition-all text-left"
+          >
+            Run a render
+            <span className="block text-[9px] text-gvc-gold/60 mt-0.5">
+              Setup + first render script
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   );
