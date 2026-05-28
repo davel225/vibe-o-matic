@@ -1397,16 +1397,18 @@ function WalletPill({
     balance !== null ? formatVibestr(balance) : "…";
   return (
     // Two-row card: address on top, both balances clearly labeled below.
-    // Previously we crammed everything into a single dot-separated pill,
-    // which made the VIBESTR + USDC numbers blur together. Splitting onto
-    // two rows + adding small uppercase labels makes both rails legible at
-    // a glance, even when the numbers are long (e.g. "1,234.56 VIBESTR").
-    <div className="flex flex-col gap-1.5 px-4 py-2.5 rounded-2xl bg-gvc-dark border border-white/[0.08]">
+    // Width is constrained to 400px on lg+ to align the right edge with
+    // the controls column (image / scene / action panels), so the wallet
+    // visually sits "above" its rails. On mobile it stretches naturally.
+    // Balances are justified to the two ends of the row so VIBESTR sits
+    // at the left edge and USDC at the right — full-width air between
+    // them, no awkward middle clump.
+    <div className="flex flex-col gap-1.5 px-4 py-2.5 rounded-2xl bg-gvc-dark border border-white/[0.08] w-full lg:w-[400px]">
       <div className="flex items-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-gvc-green" />
         <span className="font-body text-sm text-white/70">{shortAddr(account)}</span>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between">
         <div className="flex flex-col items-start leading-tight">
           <span className="font-body text-[10px] uppercase tracking-wider text-white/40">
             VIBESTR
@@ -1415,8 +1417,7 @@ function WalletPill({
             {vibestrText}
           </span>
         </div>
-        <span className="text-white/15">·</span>
-        <div className="flex flex-col items-start leading-tight">
+        <div className="flex flex-col items-end leading-tight">
           <span className="font-body text-[10px] uppercase tracking-wider text-white/40">
             USDC (Base)
           </span>
