@@ -28,7 +28,7 @@ It's a working answer to two questions GVC cares about:
 1. **It's actually shipping**, not just a demo video. The x402 USDC rail is live on **Base mainnet** for both the web UI (humans) and the agent endpoint, settling real $0.69 USDC payments on-chain per render. The VIBESTR rail is wired and waiting on a whitelisted VIBESTR recipient being put in place.
 2. **The agentic x402 flow is the kind of integration we expect more services to offer in the coming year.** We're not "an API behind Stripe" — we're a service that an autonomous AI agent can discover, agree to a price with, pay for, and consume in one HTTP round-trip. It's the pattern web services will adopt to charge per-call without an API-key economy.
 3. **The OpenSea integration is a love letter to the marketplace** that built this whole NFT ecosystem. Brand-correct neon signage, exact hex codes, baked into one of the canonical scenes.
-4. **The future is honestly costed and scoped.** We're not handwaving — [`FUTURE.md`](./FUTURE.md) is a partnership proposal with concrete integration steps, compatibility questions, and what changes per file.
+4. **The future is honestly costed and scoped.** We're not handwaving — [`FUTURE.md`](./FUTURE.md) is a proof-of-concept roadmap with concrete integration steps, due-diligence checklist, and what changes per file.
 5. **Built with Claude Code**. Every line of code in this repo was paired between a human and Claude. The development log itself is a demonstration of human + AI agent collaboration — the same pattern we're enabling for *consumers* of vibe-o-matic.
 
 ---
@@ -218,4 +218,4 @@ Full roadmap, integration plan, and compatibility questions live in [`FUTURE.md`
 
 ---
 
-*Made for the Good Vibes Club community by [your name] · [your X handle] · [contact].*
+*Made for the Good Vibes Club community by economist · [@economist](https://x.com/economist) · e@conomist.net*
