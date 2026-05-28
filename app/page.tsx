@@ -1239,17 +1239,25 @@ export default function Home() {
         >
           <Stat label="Total renders" value={totalGens} />
           <Stat label="Last render" valueText={lastGenAgo} />
-          <Stat
-            label="GVC floor"
-            valueText={
-              typeof stats?.floorPriceUsd === "number"
-                ? `$${stats.floorPriceUsd.toLocaleString(undefined, {
-                    maximumFractionDigits: 0,
-                  })}`
-                : "—"
-            }
-          />
+          <AgentEndpointCard />
         </motion.section>
+
+        {/* GVC stats kept as a small footer line (not the headline) */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.32 }}
+          className="mt-2 text-[10px] font-body text-white/30 text-center"
+        >
+          {typeof stats?.floorPriceUsd === "number"
+            ? `GVC floor: $${stats.floorPriceUsd.toLocaleString(undefined, {
+                maximumFractionDigits: 0,
+              })}`
+            : "GVC floor: —"}
+          {typeof stats?.numOwners === "number" && (
+            <> · {stats.numOwners.toLocaleString()} holders</>
+          )}
+        </motion.div>
 
         {/* ── History ────────────────────────────────────── */}
         {history.length > 0 && (
@@ -1381,6 +1389,68 @@ function WalletPill({
       </span>
       <span className="text-white/20">·</span>
       <span className="font-display text-xs text-gvc-gold">{usdcText}</span>
+    </div>
+  );
+}
+
+/**
+ * AgentEndpointCard — small CTA cell for AI-agent developers landing on the
+ * page. Shows the x402 endpoint, current price, and gives one-click copy
+ * affordances for the discovery URL + the headless test command, plus a link
+ * to the full X402.md docs. Lives in the stats row in place of the prior
+ * "GVC floor" stat.
+ */
+function AgentEndpointCard() {
+  const endpoint =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/vibeify/x402`
+      : "/api/vibeify/x402";
+  const repoBase = "https://github.com/davel225/vibe-o-matic";
+  const cliSnippet = `AGENT_PRIVATE_KEY=0x... node scripts/test-x402-agent.mjs "your intent"`;
+
+  const copy = (text: string, label: string) => {
+    navigator.clipboard
+      ?.writeText(text)
+      .then(() => toast.success(`${label} copied`))
+      .catch(() => toast.error("Copy failed"));
+  };
+
+  return (
+    <div className="rounded-2xl bg-gradient-to-br from-gvc-dark to-black border border-gvc-gold/20 p-5 flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-white/40 font-body text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+          <span>🤖</span>
+          For AI agents
+        </p>
+        <a
+          href={`${repoBase}/blob/main/X402.md`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] font-body text-gvc-gold/70 hover:text-gvc-gold"
+        >
+          Docs ↗
+        </a>
+      </div>
+      <p className="font-display text-sm text-gvc-gold leading-tight">
+        POST /api/vibeify/x402
+      </p>
+      <p className="text-[10px] font-body text-white/50">
+        $0.69 USDC · Base mainnet · x402 protocol
+      </p>
+      <div className="flex flex-wrap gap-1.5 mt-1">
+        <button
+          onClick={() => copy(endpoint, "Endpoint URL")}
+          className="text-[10px] font-body px-2 py-1 rounded-md bg-black/40 border border-white/[0.08] text-white/60 hover:border-gvc-gold/30 hover:text-gvc-gold transition-all"
+        >
+          Copy endpoint
+        </button>
+        <button
+          onClick={() => copy(cliSnippet, "CLI snippet")}
+          className="text-[10px] font-body px-2 py-1 rounded-md bg-black/40 border border-white/[0.08] text-white/60 hover:border-gvc-gold/30 hover:text-gvc-gold transition-all"
+        >
+          Copy CLI
+        </button>
+      </div>
     </div>
   );
 }
