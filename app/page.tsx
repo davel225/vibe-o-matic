@@ -163,6 +163,15 @@ export default function Home() {
   // ── Test-mode bypass ─────────────────────────────────────
   const [bypassAvailable, setBypassAvailable] = useState(false);
   const [bypassMode, setBypassMode] = useState(false);
+  // Test mode is server-gated by a password. The user types it here; the
+  // server validates the value against VIBEIFY_BYPASS_PASSWORD (default
+  // "0r4ng3") and only honors `bypass=1` when it matches. Stored in state
+  // so the toggle can preview whether it'd unlock (client-side hint only —
+  // not security, the server is authoritative).
+  const [bypassPassword, setBypassPassword] = useState("");
+  const TEST_PASSWORD_HINT = "0r4ng3"; // shared client/server constant; server
+                                       // can rotate via env var, this stays as
+                                       // the default UX hint.
 
   // ── External data ────────────────────────────────────────
   const [stats, setStats] = useState<CollectionStats | null>(null);
@@ -407,6 +416,7 @@ export default function Home() {
 
     if (testMode) {
       fd.set("bypass", "1");
+      fd.set("bypassPassword", bypassPassword);
     } else if (vibestrRail) {
       fd.set("payer", account!);
       fd.set("txHashes", hashes.join(","));
@@ -892,45 +902,72 @@ export default function Home() {
               </div>
             )}
 
-            {/* Test-mode toggle (only renders when server allows bypass) */}
+            {/* Test-mode panel — server is always willing to serve test mode
+                (bypassAvailable is always true now), but only if the user POSTs
+                the right `bypassPassword`. Default password is "0r4ng3" (the
+                "orange accent" GVC color, in leet). The toggle stays disabled
+                until the typed password matches client-side; the server
+                independently validates on POST. */}
             {bypassAvailable && (
               <div
-                className={`mt-3 flex items-center justify-between gap-3 px-3 py-2 rounded-xl border ${
+                className={`mt-3 px-3 py-2 rounded-xl border ${
                   testMode
                     ? "bg-pink-accent/10 border-pink-accent/40"
                     : "bg-black/30 border-white/[0.06]"
                 }`}
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-base">🧪</span>
-                  <div className="min-w-0">
-                    <p
-                      className={`font-display text-xs ${
-                        testMode ? "text-pink-accent" : "text-white/70"
-                      }`}
-                    >
-                      Test mode
-                    </p>
-                    <p className="text-[10px] font-body text-white/40 truncate">
-                      {testMode
-                        ? "No VIBESTR will be charged. Disable before launch."
-                        : "Skip payment — uses your OpenAI credits only."}
-                    </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base">🧪</span>
+                    <div className="min-w-0">
+                      <p
+                        className={`font-display text-xs ${
+                          testMode ? "text-pink-accent" : "text-white/70"
+                        }`}
+                      >
+                        Test mode
+                      </p>
+                      <p className="text-[10px] font-body text-white/40 truncate">
+                        {testMode
+                          ? "Free render — no payment. Disable for real renders."
+                          : "Password-gated free renders for the team."}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <button
-                  onClick={() => setBypassMode((v) => !v)}
-                  className={`shrink-0 relative w-10 h-5 rounded-full transition-colors ${
-                    testMode ? "bg-pink-accent" : "bg-gvc-gray"
-                  }`}
-                  aria-label="Toggle test mode"
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                      testMode ? "translate-x-5" : "translate-x-0"
+                  <button
+                    onClick={() => {
+                      // Client-side check is just for UX gating. The server
+                      // validates the password independently on POST.
+                      if (bypassPassword === TEST_PASSWORD_HINT) {
+                        setBypassMode((v) => !v);
+                      } else {
+                        toast.error("Enter the test-mode password first");
+                      }
+                    }}
+                    disabled={bypassPassword !== TEST_PASSWORD_HINT}
+                    className={`shrink-0 relative w-10 h-5 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                      testMode ? "bg-pink-accent" : "bg-gvc-gray"
                     }`}
+                    aria-label="Toggle test mode"
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                        testMode ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+                {/* Password input — required to unlock the toggle. Hidden text
+                    so a demo audience can't read it over your shoulder. */}
+                {!testMode && (
+                  <input
+                    type="password"
+                    value={bypassPassword}
+                    onChange={(e) => setBypassPassword(e.target.value)}
+                    placeholder="Password"
+                    className="mt-2 w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/[0.06] text-white text-[11px] font-body focus:border-pink-accent/40 outline-none"
                   />
-                </button>
+                )}
               </div>
             )}
 

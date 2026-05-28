@@ -121,16 +121,21 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Payment verification ───────────────────────────────────────
+  // Test mode is gated behind a password instead of a server env var so the
+  // gate ships with the code and "just works" on any deploy. Default password
+  // is hardcoded below; override with VIBEIFY_BYPASS_PASSWORD env var if you
+  // ever need to rotate. This is friend-tier security (intended to keep
+  // demo viewers from clicking and getting free renders), NOT a real auth
+  // boundary — anyone reading our public source can see the default password.
+  // No agent mode here: test mode is free standard renders only.
+  const TEST_PASSWORD = process.env.VIBEIFY_BYPASS_PASSWORD || "0r4ng3";
   const bypassRequested = form.get("bypass") === "1";
-  const bypassAllowed = process.env.VIBEIFY_ALLOW_BYPASS === "1";
-  const isTestMode = bypassRequested && bypassAllowed;
+  const bypassPassword = (form.get("bypassPassword") as string | null) || "";
+  const isTestMode = bypassRequested && bypassPassword === TEST_PASSWORD;
 
-  if (bypassRequested && !bypassAllowed) {
+  if (bypassRequested && !isTestMode) {
     return NextResponse.json(
-      {
-        error:
-          "Test-mode bypass is disabled on this server. Set VIBEIFY_ALLOW_BYPASS=1 in the server env to enable it.",
-      },
+      { error: "Test-mode password incorrect." },
       { status: 403 }
     );
   }
@@ -218,6 +223,8 @@ export async function GET() {
       address: r.address,
       percent: r.percent,
     })),
-    bypassAvailable: process.env.VIBEIFY_ALLOW_BYPASS === "1",
+    // Test mode is always available, but gated by a password the client
+    // must POST in the `bypassPassword` form field. See route POST handler.
+    bypassAvailable: true,
   });
 }
