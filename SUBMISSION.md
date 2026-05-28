@@ -10,7 +10,7 @@
 
 vibe-o-matic turns any photo into a Good Vibes Club / Vibetown vinyl figurine render in ~40 seconds. We built two surfaces for two distinct audiences:
 
-- **GVC humans** open the web UI, connect MetaMask, and pick a rail: **$0.69 USDC on Base** (live today, default, one gasless signature) or **99 VIBESTR on Ethereum** (shown as `SOON` — flips on the moment the GVC team adds our treasury to VIBESTR's recipient allowlist). Either way, 100% to the GVC treasury.
+- **GVC humans** open the web UI, connect MetaMask, and pick a rail: **$0.69 USDC on Base** (live today, default, one gasless signature) or **99 VIBESTR on Ethereum** (shown as `SOON` — flips on the moment the GVC team adds our recipient address to VIBESTR's allowlist).
 - **Autonomous AI agents** hit `POST /api/vibeify/x402` with an image + free-text intent. Our server-side agent picks the scene/action/mood/size, runs the render, and settles a $0.69 USDC payment on Base — all in one HTTP round-trip. No API key, no signup, no human in the loop.
 
 It's a working answer to two questions GVC cares about:
@@ -34,14 +34,14 @@ A judge or GVC holder can:
 
 The wallet pill in the header shows BOTH balances live (VIBESTR on Ethereum + USDC on Base) regardless of which chain MetaMask is currently on — each balance is read via a public RPC for that chain, so the user always sees what they can spend on either rail.
 
-VIBESTR enforces a private recipient allowlist inside `_transfer` — transfers to addresses on the list succeed; transfers to any other recipient revert with `InsufficientAllowance` regardless of sender balance. The vibe-o-matic treasury (`0xc93c375b…cfce22`) is coordinated with the GVC team for allowlist addition. Once added, the VIBESTR rail flips from `SOON` to active with a two-line UI edit in `app/page.tsx` — the server-side `payVibestrSplit` helper, on-chain `verifyPayment`, and the full multi-tx settlement pipeline are already production-ready and waiting. The exact re-enable steps live in [`LAUNCH.md`](./LAUNCH.md#how-to-re-enable-the-vibestr-rail-in-the-ui-once-it-lands). Until then, USDC is the live default for the web UI and the x402 USDC agent rail demos the full payment pipeline.
+VIBESTR enforces a private recipient allowlist inside `_transfer` — transfers to addresses on the list succeed; transfers to any other recipient revert with `InsufficientAllowance` regardless of sender balance. Our recipient address is coordinated with the GVC team for allowlist addition (exact address recorded in [`LAUNCH.md`](./LAUNCH.md) and [`WIRING.md`](./WIRING.md), kept out of the submission narrative for tidiness). Once added, the VIBESTR rail flips from `SOON` to active with a two-line UI edit in `app/page.tsx` — the server-side `payVibestrSplit` helper, on-chain `verifyPayment`, and the full multi-tx settlement pipeline are already production-ready and waiting. The exact re-enable steps live in [`LAUNCH.md`](./LAUNCH.md#how-to-re-enable-the-vibestr-rail-in-the-ui-once-it-lands). Until then, USDC is the live default for the web UI and the x402 USDC agent rail demos the full payment pipeline.
 
 ### Surface 2 — The x402 agent endpoint (the autonomous AI path)
 External AI agents hit `POST /api/vibeify/x402` with two body params: an image and a free-text intent. Our server-side picker reads the photo + intent and chooses scene/action/mood/size from the curated catalog. The render proceeds, the agent's picks come back in the response (with reasoning), and a $0.69 USDC payment settles on Base — all in one HTTP round-trip with the EIP-3009 signature in the `X-PAYMENT` header.
 
 #### Why it's actually agent-friendly (not just "an API")
 
-1. **Self-describing endpoint.** `GET /api/vibeify/x402` is a discovery call: any agent that already speaks x402 receives the price, treasury address, network, and facilitator URL in one curl. No SDK, no docs lookup, no vibe-o-matic-specific code.
+1. **Self-describing endpoint.** `GET /api/vibeify/x402` is a discovery call: any agent that already speaks x402 receives the price, recipient address, network, and facilitator URL in one curl. No SDK, no docs lookup, no vibe-o-matic-specific code.
 2. **Caller doesn't need to learn our catalog.** Send `agentMode=1` + an optional one-line intent. Our server-side gpt-4o-mini picker resolves the intent into one of **1,008 valid combinations** (6 scenes × 7 actions × 8 moods × 3 ratios). Free text in, render out.
 3. **Pay in the protocol's currency, not ours.** USDC via EIP-3009 — no API key, no signup, no rate-limit dashboard, no Stripe account. The agent's wallet IS the credential.
 4. **Transparent agent picks.** Response includes `agentPicks` with the chosen ids AND the picker's reasoning, so callers can build feedback loops on what works.
@@ -82,16 +82,16 @@ Each render sends 7 reference images to Flux: 1 body T-pose template, 4 curated 
 
 | Audience | Surface | Rail today | Rail roadmap |
 |---|---|---|---|
-| **GVC humans** | The web UI (vibe-o-matic.vercel.app) | $0.69 USDC on Base — live, default, one gasless EIP-3009 signature | 99 VIBESTR on Ethereum — `SOON` pill flips on the moment the GVC team adds our treasury to VIBESTR's recipient allowlist |
+| **GVC humans** | The web UI (vibe-o-matic.vercel.app) | $0.69 USDC on Base — live, default, one gasless EIP-3009 signature | 99 VIBESTR on Ethereum — `SOON` pill flips on the moment the GVC team adds our recipient address to VIBESTR's allowlist |
 | **Autonomous AI agents** | `POST /api/vibeify/x402` | $0.69 USDC on Base — live via Coinbase CDP facilitator | Stays USDC-only — see *why* below |
 
 The architecture is deliberate, not accidental:
 
-- **The web UI ships with USDC because we can ship it today.** Real users render real images right now, paying real on-chain stablecoin into the GVC treasury, with the full economy flowing — no IOUs, no demo-mode disclaimers, no "coming soon" gating the entire experience. The site is live and earning at the moment a judge opens it.
+- **The web UI ships with USDC because we can ship it today.** Real users render real images right now, paying real on-chain stablecoin into the project's recipient address, with the full economy flowing — no IOUs, no demo-mode disclaimers, no "coming soon" gating the entire experience. The site is live and earning at the moment a judge opens it.
 - **VIBESTR is one allowlist call away.** Every line of the VIBESTR rail is production-ready: `payVibestrSplit` builds the multi-transfer payment, `verifyPayment` validates the on-chain receipts, the wallet pill already displays a live VIBESTR balance, and the UI re-enable is a two-line edit. The only thing between today and "100% of human renders create on-chain VIBESTR buying pressure" is one transaction from a GVC contract owner. Verification script + re-enable steps in [`LAUNCH.md`](./LAUNCH.md#-pending-vibestr-allowlist-add).
 - **The agent endpoint stays USDC-only on purpose.** x402's facilitator network speaks EIP-3009 + USDC because that's the stablecoin every facilitator can verify and settle across chains. VIBESTR isn't in that compatibility set — and even if it were, autonomous agents don't (and shouldn't have to) hold every niche community token to pay for services. Agents pay protocol currency, that's the universal interface. The agent endpoint at `/api/vibeify/x402` is a separate, machine-callable URL with its own contract documented in [`X402.md`](./X402.md).
 
-**End state:** humans default to VIBESTR (creating buying pressure on the GVC-native token with every render), humans who want frictionless onboarding still have USDC, and agents pay USDC because that's what protocol currency looks like. The treasury accumulates both. Nothing is mutually exclusive.
+**End state:** humans default to VIBESTR (creating buying pressure on the GVC-native token with every render), humans who want frictionless onboarding still have USDC, and agents pay USDC because that's what protocol currency looks like. The recipient address accumulates both. Nothing is mutually exclusive.
 
 ### 🤖 First-class agentic interface (the headline feature)
 The `/api/vibeify/x402` endpoint accepts two modes:
@@ -219,7 +219,7 @@ Full roadmap, integration plan, and compatibility questions in [`FUTURE.md`](./F
 
 ## Why we're proud of this
 
-1. **It's actually shipping**, not just a demo video. The x402 USDC rail is live on **Base mainnet** for both the web UI (humans) and the agent endpoint, settling real $0.69 USDC payments on-chain per render. The VIBESTR rail is wired and waiting on the GVC team's recipient-allowlist addition for our treasury.
+1. **It's actually shipping**, not just a demo video. The x402 USDC rail is live on **Base mainnet** for both the web UI (humans) and the agent endpoint, settling real $0.69 USDC payments on-chain per render. The VIBESTR rail is wired and waiting on the GVC team's allowlist addition for our recipient address.
 2. **The agentic x402 flow is a genuine first-of-kind**. We're not just "an API behind Stripe." We're a service that an autonomous AI agent can discover, agree to a price with, pay for, and consume — in one HTTP round-trip. That's the next decade of web monetization.
 3. **The OpenSea integration is a love letter to the marketplace** that built this whole NFT ecosystem. Brand-correct neon signage, exact hex codes, baked into one of the canonical scenes.
 4. **The future is honestly costed and scoped**. We're not handwaving — `FUTURE.md` is a partnership proposal with a 1–3 day integration estimate.
