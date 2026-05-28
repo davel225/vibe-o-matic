@@ -55,6 +55,30 @@ Estimated integration effort: **~1 day** if the LoRA is BFL-hosted, **~2–3 day
 
 ---
 
+## ⏳ VIBESTR rail activation
+
+The second human-side payment rail is built end-to-end and gated entirely on a single on-chain action by the GVC team: **adding our recipient address to VIBESTR's private `_transfer` allowlist**. While the allowlist add is pending, the web UI shows VIBESTR as a `SOON` pill next to the active USDC option, and humans pay via USDC.
+
+### What's already production-ready
+
+- `payVibestrSplit` builds the multi-transfer payment client-side
+- `verifyPayment` validates the on-chain receipts server-side
+- The wallet pill in the header displays a live VIBESTR balance regardless of which chain the user's wallet is currently on
+- Server-side replay protection on tx hashes (in-memory today; move to KV before high volume — see [`LAUNCH.md`](./LAUNCH.md))
+
+### What's needed to flip it live
+
+1. One on-chain transaction from a VIBESTR contract owner adding our recipient address to the allowlist
+2. A two-line edit in `app/page.tsx` removing the `SOON` pill and re-wiring the click handler
+
+That's it — no further code changes required. Verification script + exact re-enable steps live in [`LAUNCH.md`](./LAUNCH.md#-pending-vibestr-allowlist-add).
+
+### Why this lives in the future doc
+
+The hackathon build ships humans a working rail (USDC) and demonstrates VIBESTR end-to-end via the test-mode bypass. The native-coin rail goes live the moment the allowlist add lands — entirely outside the hackathon scope, but a one-action distance from production.
+
+---
+
 ## 📋 Other future additions
 
 ### Prompt-machine integration
