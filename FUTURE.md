@@ -1,6 +1,8 @@
 # vibe-o-matic — future additions
 
-Items intentionally **out of scope** for the hackathon build, captured here as the roadmap for what vibe-o-matic could become with full GVC team resources behind it.
+Items intentionally **out of scope** for the hackathon build, captured here as the roadmap for what vibe-o-matic could become with GVC team resources behind it.
+
+Stewardship of the project transfers to the GVC team post-hackathon (see [`WIRING.md`](./WIRING.md) for the per-dependency handoff guide). The items below describe directions the project could take — actual implementation, hosting decisions, and prioritization are GVC's call. The original author is happy to consult on any of these items but is not the implementer once the keys change hands.
 
 ---
 
@@ -34,30 +36,35 @@ A LoRA trained on the GVC character set **bakes those defaults into the model we
 
 The identity pipeline (gpt-4o-mini describing the uploaded photo) still runs — **the LoRA provides style, the describer provides identity**. They're complementary.
 
-### Integration sketch
+### Integration approach (GVC-led)
 
-If GVC provides a Flux-compatible LoRA:
+If GVC chooses to pursue a LoRA upgrade, the technical path is short. Integration, hosting, and rollout decisions belong to the GVC team — the shape of the work, for reference:
 
-1. **Receive the model.** Ideal: a BFL-hosted finetune (`finetune_id`). Alternative: a `.safetensors` file we self-host on Replicate / FAL / RunPod.
-2. **Update `lib/vibeify-flux.ts`** to call BFL's finetune endpoint instead of `/v1/flux-2-pro`, passing `finetune_id` and `finetune_strength` (typically 0.7–0.9).
-3. **Prune the prompt.** Most of `buildVibetownPrompt` in `lib/vibeify-render.ts` becomes redundant — the model already knows what a GVC character is. Keep scene + action + mood + subject description.
-4. **Retire `public/gvc-faces/`** — no longer needed as input references.
-5. **A/B test** with-LoRA vs current pipeline on the same prompts to validate the lift.
+1. **Source the LoRA.** Either a BFL-hosted finetune (`finetune_id`, simplest path — no extra hosting to own) or a `.safetensors` file self-hosted on Replicate / FAL / RunPod (more flexibility, more infrastructure ownership).
+2. **Swap the renderer call.** `lib/vibeify-flux.ts` currently calls `/v1/flux-2-pro`. Point it at the relevant finetune endpoint instead, passing `finetune_id` and `finetune_strength` (typically 0.7–0.9).
+3. **Prune the prompt.** Most of `buildVibetownPrompt` in `lib/vibeify-render.ts` becomes redundant once the model knows GVC at the weights level. Keep scene + action + mood + subject description; drop the no-nose / facial-hair / skin-tone guardrails.
+4. **Retire face references.** `public/gvc-faces/` is no longer needed as renderer input.
+5. **A/B test** with-LoRA vs current pipeline on the same prompts to validate the lift before fully cutting over.
 
-Estimated integration effort: **~1 day** if the LoRA is BFL-hosted, **~2–3 days** if we self-host.
+### Due diligence checklist (pre-integration)
 
-### Compatibility questions to resolve with the GVC team
+Items the GVC team should confirm or decide before kicking off the integration work:
 
-- Which base model is the LoRA trained on? (Flux.1 [dev], Flux.1 [pro], Flux.2 — LoRAs do not cross base models)
-- Format: BFL finetune_id, or raw `.safetensors`?
-- Trigger word (e.g. `gvccharacter`, `vibetown_figurine`)?
-- Recommended strength range?
+- [ ] **Base model alignment.** Which base is the LoRA trained on (Flux.1 [dev], Flux.1 [pro], Flux.2)? LoRAs do not cross base models — if the LoRA targets a different base than our current Flux 2 [pro] pipeline, either retrain to align or commit to that base's rendering pipeline for the rest of the stack.
+- [ ] **Artifact format.** BFL-hosted `finetune_id` vs raw `.safetensors`? Each has different hosting + cost implications. Pick before sourcing.
+- [ ] **Trigger word.** Most LoRAs expect a specific phrase (e.g. `gvccharacter`, `vibetown_figurine`) in the prompt to activate the style. Confirm what the trained word is so the prompt template can include it.
+- [ ] **Recommended strength range.** Under-strength means the pipeline still fights priors; over-strength can over-saturate. Confirm the trainer's recommended `finetune_strength` band.
+- [ ] **Cost delta.** Compare cost-per-call with the LoRA endpoint vs the current Flux 2 [pro] flat rate. Finetune endpoints sometimes price differently — confirm budget impact.
+- [ ] **A/B benchmark set.** Is there a curated set of GVC-style outputs against which to evaluate the LoRA's lift? If not, assemble ~50 reference renders before cutover.
+- [ ] **Face reference fallback.** Decide whether `public/gvc-faces/` stays in the repo as a fallback (in case the LoRA endpoint is briefly unavailable) or is retired entirely.
+- [ ] **Billing ownership.** Which GVC account holds the BFL or self-host bill once the LoRA is live? Coordinate with the WIRING.md key-rotation step.
+- [ ] **Rollout plan.** Big-bang cutover, fractional A/B rollout, or canary at a single rail (e.g. agent endpoint first)?
 
 ---
 
 ## ⏳ VIBESTR rail activation
 
-The second human-side payment rail is built end-to-end and gated entirely on a single on-chain action by the GVC team: **adding our recipient address to VIBESTR's private `_transfer` allowlist**. While the allowlist add is pending, the web UI shows VIBESTR as a `SOON` pill next to the active USDC option, and humans pay via USDC.
+The second human-side payment rail is built end-to-end and gated entirely on a single on-chain action: **a whitelisted VIBESTR recipient address being put in place** for the contract's `_transfer` allowlist. While the allowlist add is pending, the web UI shows VIBESTR as a `SOON` pill next to the active USDC option, and humans pay via USDC.
 
 ### What's already production-ready
 
@@ -68,14 +75,14 @@ The second human-side payment rail is built end-to-end and gated entirely on a s
 
 ### What's needed to flip it live
 
-1. One on-chain transaction from a VIBESTR contract owner adding our recipient address to the allowlist
-2. A two-line edit in `app/page.tsx` removing the `SOON` pill and re-wiring the click handler
+1. A whitelisted VIBESTR recipient address is added to the contract's `_transfer` allowlist by a VIBESTR contract owner
+2. A two-line edit in `app/page.tsx` removes the `SOON` pill and re-wires the click handler
 
 That's it — no further code changes required. Verification script + exact re-enable steps live in [`LAUNCH.md`](./LAUNCH.md#-pending-vibestr-allowlist-add).
 
 ### Why this lives in the future doc
 
-The hackathon build ships humans a working rail (USDC) and demonstrates VIBESTR end-to-end via the test-mode bypass. The native-coin rail goes live the moment the allowlist add lands — entirely outside the hackathon scope, but a one-action distance from production.
+The hackathon build ships humans a working rail (USDC) and demonstrates the VIBESTR pipeline end-to-end via the test-mode bypass. The native-coin rail goes live the moment a whitelisted recipient is in place — entirely outside the hackathon scope, but a one-action distance from production.
 
 ---
 
@@ -94,7 +101,7 @@ Today the pipeline handles one uploaded photo with potentially multiple subjects
 Once a still render is locked, a follow-up call could animate it (subtle idle motion, scene weather, neon flicker) using a video-capable model.
 
 ### On-chain provenance
-Mint each successful render as a HighKey Moments ERC-1155 token, with the source description and prompt stored as metadata — turning each pull into a permanent collectible.
+Mint each successful render on-chain as a token (ERC-20 or ERC-1155) tied to the source description + prompt as metadata — turning each pull into a recorded artifact. Choice of standard, contract, and minting venue would be GVC's call.
 
 ### Asset pack expansion
 Partner-branded scene packs (like the OpenSea neon sign added during the hackathon) for other GVC partners — each scene becoming a recognizable cross-brand moment.
@@ -102,4 +109,3 @@ Partner-branded scene packs (like the OpenSea neon sign added during the hackath
 ---
 
 *This roadmap is what vibe-o-matic becomes with the resources of GVC fully behind it. The hackathon build is the proof of concept; the LoRA pipeline is the production-grade version.*
-
