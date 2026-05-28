@@ -1387,18 +1387,40 @@ function WalletPill({
   // USDC has 6 decimals — quick inline format (avoids an extra import).
   const usdcText =
     usdcBalance !== null
-      ? `$${(Number(usdcBalance) / 1_000_000).toFixed(2)} USDC`
+      ? `$${(Number(usdcBalance) / 1_000_000).toFixed(2)}`
       : "…";
+  const vibestrText =
+    balance !== null ? formatVibestr(balance) : "…";
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gvc-dark border border-white/[0.08]">
-      <span className="w-1.5 h-1.5 rounded-full bg-gvc-green" />
-      <span className="font-body text-sm text-white/70">{shortAddr(account)}</span>
-      <span className="text-white/20">·</span>
-      <span className="font-display text-sm text-gvc-gold">
-        {balance !== null ? `${formatVibestr(balance)} VIBESTR` : "…"}
-      </span>
-      <span className="text-white/20">·</span>
-      <span className="font-display text-sm text-gvc-gold">{usdcText}</span>
+    // Two-row card: address on top, both balances clearly labeled below.
+    // Previously we crammed everything into a single dot-separated pill,
+    // which made the VIBESTR + USDC numbers blur together. Splitting onto
+    // two rows + adding small uppercase labels makes both rails legible at
+    // a glance, even when the numbers are long (e.g. "1,234.56 VIBESTR").
+    <div className="flex flex-col gap-1.5 px-4 py-2.5 rounded-2xl bg-gvc-dark border border-white/[0.08]">
+      <div className="flex items-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-gvc-green" />
+        <span className="font-body text-sm text-white/70">{shortAddr(account)}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex flex-col items-start leading-tight">
+          <span className="font-body text-[10px] uppercase tracking-wider text-white/40">
+            VIBESTR
+          </span>
+          <span className="font-display text-base text-gvc-gold">
+            {vibestrText}
+          </span>
+        </div>
+        <span className="text-white/15">·</span>
+        <div className="flex flex-col items-start leading-tight">
+          <span className="font-body text-[10px] uppercase tracking-wider text-white/40">
+            USDC (Base)
+          </span>
+          <span className="font-display text-base text-gvc-gold">
+            {usdcText}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
