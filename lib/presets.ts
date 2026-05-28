@@ -124,14 +124,14 @@ export const ACTION_PRESETS: ActionPreset[] = [
     emoji: "🏍️",
     label: "Motorcycle",
     prompt:
-      "straddling a sleek retro motorcycle, hands gripping the handlebars, ready to ride",
+      "straddling a stout vintage café-racer motorcycle — a glossy candy-red rounded fuel tank, a single tan leather saddle seat, low chrome handlebars, exposed chrome exhaust pipe running along the side, fat whitewall tires with chrome-spoked wheels — feet planted firmly on the ground, both hands gripping the bars",
   },
   {
     id: "helicopter",
     emoji: "🚁",
     label: "Helicopter",
     prompt:
-      "stepping out of a small helicopter on the ground with rotors spinning slowly above, ducking slightly with one hand near the cabin door",
+      "standing beside a small bubble-canopy helicopter parked on the ground — a rounded transparent glass cockpit dome, a slender exposed lattice tail boom ending in a small tail rotor, twin tubular landing skids underneath, four slim main rotor blades drooping gently overhead — one hand resting casually on the open cabin door",
   },
 ];
 
