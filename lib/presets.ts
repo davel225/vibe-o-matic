@@ -119,6 +119,20 @@ export const ACTION_PRESETS: ActionPreset[] = [
     prompt:
       "caught mid-dance with loose limbs and weight shifted onto one foot",
   },
+  {
+    id: "motorcycle",
+    emoji: "🏍️",
+    label: "Motorcycle",
+    prompt:
+      "straddling a sleek retro motorcycle, hands gripping the handlebars, ready to ride",
+  },
+  {
+    id: "helicopter",
+    emoji: "🚁",
+    label: "Helicopter",
+    prompt:
+      "stepping out of a small helicopter on the ground with rotors spinning slowly above, ducking slightly with one hand near the cabin door",
+  },
 ];
 
 export type MoodPreset = {
@@ -159,6 +173,27 @@ export const MOOD_PRESETS: MoodPreset[] = [
     emoji: "💪",
     label: "Heroic",
     prompt: "bold and cinematic — strong stance, dramatic directional light",
+  },
+  {
+    id: "noir",
+    emoji: "🕶️",
+    label: "Noir",
+    prompt:
+      "moody noir contrast — deep shadows, sharp rim light, dramatic side-lit mystery",
+  },
+  {
+    id: "playful",
+    emoji: "🎈",
+    label: "Playful",
+    prompt:
+      "whimsical and bouncy — bright pastel candy palette, soft diffused light, lighthearted energy",
+  },
+  {
+    id: "retro",
+    emoji: "📼",
+    label: "Retro",
+    prompt:
+      "nostalgic retro warmth — faded film tones, gentle grain, sun-bleached 70s palette",
   },
 ];
 
