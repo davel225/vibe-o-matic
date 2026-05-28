@@ -90,34 +90,35 @@ export const ACTION_PRESETS: ActionPreset[] = [
     emoji: "🤝",
     label: "Friendship",
     prompt:
-      "enjoying the bonds of friendship, side by side with easy body language",
+      "in an easy, connected social stance — shoulders relaxed, arms loose or casually draped across nearby subjects' shoulders/backs, bodies angled slightly toward each other in warm companionship",
   },
   {
     id: "celebrate",
     emoji: "🎉",
     label: "Celebrate",
-    prompt: "arms thrown up mid-cheer in joyful celebration, confetti energy",
+    prompt:
+      "both arms thrown high overhead mid-cheer, fists open and palms forward, mouths laughing, with small bright confetti pieces drifting in the air around them",
   },
   {
     id: "group-selfie",
     emoji: "🤳",
     label: "Selfie",
     prompt:
-      "leaning in for a group selfie with one arm extended forward holding a phone",
+      "facing the camera with one arm extended high and forward holding a smartphone, the phone visible in-hand pointing back at the subjects, faces tilted slightly inward into the frame",
   },
   {
     id: "zen",
     emoji: "🧘",
     label: "Zen",
     prompt:
-      "seated cross-legged in a calm meditative pose, hands resting on knees",
+      "seated cross-legged on the ground in a calm meditative pose, eyes softly closed, hands resting palms-up on the knees with thumb and index finger gently touching",
   },
   {
     id: "dance",
     emoji: "💃",
     label: "Dance",
     prompt:
-      "caught mid-dance with loose limbs and weight shifted onto one foot",
+      "caught mid-dance with one arm raised overhead and the other extended outward, hip popped to one side, weight on a bent leg with the opposite foot pointed",
   },
   {
     id: "motorcycle",
@@ -148,19 +149,22 @@ export const MOOD_PRESETS: MoodPreset[] = [
     id: "joyful",
     emoji: "😊",
     label: "Joyful",
-    prompt: "warm joyful glow — golden-hour light with soft smile energy",
+    prompt:
+      "warm joyful glow — golden-hour sunlight, soft skin highlights, warm amber and honey palette",
   },
   {
     id: "chill",
     emoji: "😎",
     label: "Chill",
-    prompt: "cool and effortless — relaxed, confident vibe",
+    prompt:
+      "cool and effortless overcast atmosphere — muted teal-and-blue palette, soft diffused overhead light, gentle shadows, low-key relaxed mood",
   },
   {
     id: "hyped",
     emoji: "🔥",
     label: "Hyped",
-    prompt: "saturated and electric — high-energy, kinetic atmosphere",
+    prompt:
+      "hyped electric atmosphere — highly saturated neon palette of magenta, cyan, and electric red, sharp contrast, kinetic light streaks blurring across the background",
   },
   {
     id: "dreamy",
@@ -172,7 +176,8 @@ export const MOOD_PRESETS: MoodPreset[] = [
     id: "heroic",
     emoji: "💪",
     label: "Heroic",
-    prompt: "bold and cinematic — strong stance, dramatic directional light",
+    prompt:
+      "heroic cinematic atmosphere — low-angle framing, strong rim light from behind, deep saturated palette with warm key light and cool fill, slight contre-jour glow on the subjects' silhouettes",
   },
   {
     id: "noir",
