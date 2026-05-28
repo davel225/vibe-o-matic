@@ -1411,25 +1411,32 @@ function AgentEndpointCard() {
   // endpoint quotes (price, network, facilitator). No payment, no setup.
   const discoverySnippet = `curl -s ${endpoint}`;
 
-  // A fully self-explanatory setup-and-run snippet. Comments narrate what
-  // each step does so a user pasting it into a terminal can read through
-  // it and understand without needing to read other docs first.
-  const runSnippet = `# vibe-o-matic agent runner — full setup + first render
-# Real USDC moves on Base mainnet per call ($0.69).
+  // Multi-line "where to start" snippet that points users at the script
+  // itself as the source of truth (--help lists every option) and demos
+  // the recommended flag-based call shape rather than putting a raw
+  // private key on the command line.
+  const runSnippet = `# vibe-o-matic agent runner ($0.69 USDC per call, Base mainnet)
+# The Node script is self-documenting — start with --help.
 
-# 1) Clone the repo (one-time)
+# 1) Clone + install (one-time)
 git clone https://github.com/davel225/vibe-o-matic
-cd vibe-o-matic
-npm install
+cd vibe-o-matic && npm install
 
-# 2) Drop a portrait at ./agent-photo.jpg (gitignored convention)
-#    Any clear photo of a person works best.
-cp ~/path/to/your-photo.jpg ./agent-photo.jpg
+# 2) See every available option
+node scripts/test-x402-agent.mjs --help
 
-# 3) Run a render. Replace 0x... with a Base-mainnet key holding >= $0.69 USDC.
-#    The free-text intent guides the agent's scene/action/mood/size choice.
-AGENT_PRIVATE_KEY=0x... \\
-  node scripts/test-x402-agent.mjs "rockstars at an after-party"
+# 3) Recommended call shape — flags, not env vars or shell history:
+#    --key-file <path>: plaintext file holding your Base-mainnet private key
+#                       (raw key in env / argv leaks via shell history + ps).
+#                       Source from your credentials store, e.g.:
+#                       jq -r .privateKey ~/.your-store/creds.json > /tmp/k
+#    --image <path>:    any portrait of a PERSON. Non-person subjects
+#                       (logos, animals, objects) produce unpredictable
+#                       renders — the describer is tuned for human subjects.
+node scripts/test-x402-agent.mjs \\
+  --key-file ~/.your-creds-store/base-key \\
+  --image ~/.your-media-store/inbound/portrait.jpg \\
+  "your free-text intent"
 `;
 
   const copy = (text: string, label: string) => {
