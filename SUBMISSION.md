@@ -10,10 +10,11 @@
 
 vibe-o-matic turns any photo into a Good Vibes Club / Vibetown vinyl figurine render in ~40 seconds. We built two surfaces for two distinct audiences:
 
-- **GVC humans** open the web UI, connect a wallet, and pick a rail: **$0.69 USDC on Base** (live today, default, one gasless signature) or **99 VIBESTR on Ethereum** (shown as `SOON` — flips on the moment the GVC team adds our recipient address to VIBESTR's allowlist).
+- **GVC humans** open the web UI, connect a wallet, and pick a rail: **$0.69 USDC on Base** (live today, default, one gasless signature) or **99 VIBESTR on Ethereum** (shown as `SOON` — flips once a whitelisted VIBESTR recipient is in place).
 - **Autonomous AI agents** hit `POST /api/vibeify/x402` with an image + free-text intent. Our server-side agent picks the scene/action/mood/size, runs the render, and settles a $0.69 USDC payment on Base — all in one HTTP round-trip. No API key, no signup, no human in the loop.
-
-**Why Base + x402, not raw on-chain transfers?** Base is purpose-built for the throughput pattern that defines agentic payments: ~2-second blocks, fractions-of-a-cent gas, and EIP-3009 USDC natively supported by the network's hosted facilitators. We chose x402 even for the human UI because it collapses *approve → transfer → poll on-chain receipt* into a single off-chain signature plus one HTTP round-trip — the caller never pays gas, the server settles atomically with the response, and there's no separate approval transaction. The human-side UX beats a standard ERC-20 flow noticeably, AND it means humans and autonomous agents pay through the exact same primitive — one rail, two audiences.
+  - **Built on Base for agent throughput.** ~2-second blocks and sub-cent gas — an agent can transact thousands of times a day without fees eating the margin.
+  - **Native micropayment economics.** EIP-3009 USDC + a hosted x402 facilitator makes the protocol work at single-digit-cent unit costs, where traditional payment rails (card, ACH, even L1 ERC-20 transfers) would be uneconomic.
+  - **The web UI uses the same x402 primitive.** One off-chain signature replaces *approve → transfer → poll-receipt*, so humans get the same gasless flow agents do. One rail, two audiences.
 
 It's a working answer to two questions GVC cares about:
 
@@ -24,7 +25,7 @@ It's a working answer to two questions GVC cares about:
 
 ## Why we're proud of this
 
-1. **It's actually shipping**, not just a demo video. The x402 USDC rail is live on **Base mainnet** for both the web UI (humans) and the agent endpoint, settling real $0.69 USDC payments on-chain per render. The VIBESTR rail is wired and waiting on the GVC team's allowlist addition for our recipient address.
+1. **It's actually shipping**, not just a demo video. The x402 USDC rail is live on **Base mainnet** for both the web UI (humans) and the agent endpoint, settling real $0.69 USDC payments on-chain per render. The VIBESTR rail is wired and waiting on a whitelisted VIBESTR recipient being put in place.
 2. **The agentic x402 flow is the kind of integration we expect more services to offer in the coming year.** We're not "an API behind Stripe" — we're a service that an autonomous AI agent can discover, agree to a price with, pay for, and consume in one HTTP round-trip. It's the pattern web services will adopt to charge per-call without an API-key economy.
 3. **The OpenSea integration is a love letter to the marketplace** that built this whole NFT ecosystem. Brand-correct neon signage, exact hex codes, baked into one of the canonical scenes.
 4. **The future is honestly costed and scoped.** We're not handwaving — [`FUTURE.md`](./FUTURE.md) is a partnership proposal with concrete integration steps, compatibility questions, and what changes per file.
@@ -33,6 +34,15 @@ It's a working answer to two questions GVC cares about:
 ---
 
 ## What's technically interesting
+
+### 🤖 First-class agentic interface (the headline feature)
+The `/api/vibeify/x402` endpoint accepts two modes:
+- **Explicit**: caller provides scene/action/mood/size
+- **Agent mode**: caller sends just `agentMode=1` + optional intent; server-side gpt-4o-mini picks the params from the curated catalog
+
+The agent ALWAYS picks from a curated allowlist (never free-form scene text), keeping the renderer's MP budget and prompt structure predictable. If the picker returns an unknown id, we gracefully fall back to sensible defaults — caller paid USDC, deserves *some* render. The current catalog: 6 scenes, 7 actions, 8 moods, 3 aspect ratios — **1,008 combinations** the picker can resolve a free-text intent to.
+
+This is the difference between "an API that happens to charge money" and "a service designed for autonomous AI agents from day one."
 
 ### 🧠 Vision-first describer (privacy + identity preservation)
 Source photo pixels **never reach the image generator**. We use gpt-4o-mini vision to convert the photo into a structured text description (hair, facial hair, clothing, fine details — but never face geometry), then pass *only* that text to Flux 2 [pro] along with our GVC face-structure reference set. Result: identity preserved (clothing, accessories, hair, beard) but face anatomy comes from canonical GVC templates, not the source photo.
@@ -44,7 +54,7 @@ Each render sends 7 reference images to Flux: 1 body T-pose template, 4 curated 
 
 | Audience | Surface | Rail today | Rail roadmap |
 |---|---|---|---|
-| **GVC humans** | The web UI (vibe-o-matic.vercel.app) | $0.69 USDC on Base — live, default, one gasless EIP-3009 signature | 99 VIBESTR on Ethereum — `SOON` pill flips on the moment the GVC team adds our recipient address to VIBESTR's allowlist |
+| **GVC humans** | The web UI (vibe-o-matic.vercel.app) | $0.69 USDC on Base — live, default, one gasless EIP-3009 signature | 99 VIBESTR on Ethereum — `SOON` pill flips once a whitelisted VIBESTR recipient is implemented |
 | **Autonomous AI agents** | `POST /api/vibeify/x402` | $0.69 USDC on Base — live via Coinbase CDP facilitator | Stays USDC-only — see *why* below |
 
 The architecture is deliberate, not accidental:
@@ -55,21 +65,12 @@ The architecture is deliberate, not accidental:
 
 **End state:** humans default to VIBESTR (creating buying pressure on the GVC-native token with every render), humans who want frictionless onboarding still have USDC, and agents pay USDC because that's what protocol currency looks like. Nothing is mutually exclusive.
 
-### 🤖 First-class agentic interface (the headline feature)
-The `/api/vibeify/x402` endpoint accepts two modes:
-- **Explicit**: caller provides scene/action/mood/size
-- **Agent mode**: caller sends just `agentMode=1` + optional intent; server-side gpt-4o-mini picks the params from the curated catalog
-
-The agent ALWAYS picks from a curated allowlist (never free-form scene text), keeping the renderer's MP budget and prompt structure predictable. If the picker returns an unknown id, we gracefully fall back to sensible defaults — caller paid USDC, deserves *some* render. The current catalog: 6 scenes, 7 actions, 8 moods, 3 aspect ratios — 1,008 combinations the picker can resolve a free-text intent to.
-
-This is the difference between "an API that happens to charge money" and "a service designed for autonomous AI agents from day one."
-
 ### 🎯 OpenSea brand integration
 The Neon Street scene includes a custom-built neon OpenSea logo as one of the storefront signs, using OpenSea's exact brand hex codes from their style guide (Sea Blue #2081E2, Marina Blue #15B2E5, Aqua #2BCDE4, Fog #E5E8EB). Every render at that scene puts the OpenSea mark in the background — a small visual nod to a community-defining marketplace.
 
 ---
 
-## What it does — two surfaces
+## How each surface works
 
 ### Surface 1 — The web UI (the human path)
 A judge or GVC holder can:
@@ -115,6 +116,46 @@ That's the whole integration. Any language that can sign EIP-712 typed data and 
 
 **This is the future of how AI agents pay for services on the web** — no API key, no signup, no human in the loop.
 
+### Output quality (both surfaces)
+Across N renders of the same input, we see ~90% "on-spec, judge-ready" outputs. The remaining ~10% have stochastic artifacts (occasional phantom mouth inside a beard, occasional nose regression, occasional skin-tone drift) that no amount of prompt engineering will fully eliminate against Flux's strong priors. **This is exactly the gap a GVC-trained LoRA would close** — see the next section.
+
+---
+
+## The future: GVC LoRA partnership (the production upgrade)
+
+The hackathon build is a proof of concept. The production-grade version is a single architectural change: **swap our hand-tuned 200-line prompt for a LoRA trained on the GVC character set**.
+
+### Why it matters
+
+Today, our pipeline coerces a general-purpose image model (Flux 2 [pro]) into producing GVC-style output through extensive prompt engineering. Every "no nose" / "bearded characters have no mouth" / "olive skin is warm beige" rule exists because the base model's defaults pull elsewhere. The model is always *fighting its priors* to render canonical Vibetown.
+
+A LoRA trained on GVC characters **bakes those defaults into the model weights**, eliminating the fight. What this unlocks:
+
+| Today (reference-image pipeline) | With a GVC LoRA |
+|---|---|
+| ~200-line prompt fighting model priors | ~10-line prompt; model already knows GVC |
+| Stochastic phantom-mouth / nose / skin-tone artifacts | Disappear at the weights level |
+| 7 reference images per call | Could drop to 1–2 (scene only) |
+| Identity preserved via describer (kept) | Same |
+| ~$0.045 per render | Lower (fewer ref images uploaded) |
+
+Full roadmap, integration plan, and compatibility questions live in [`FUTURE.md`](./FUTURE.md).
+
+---
+
+## Try it (live demo)
+
+| | |
+|---|---|
+| **Live URL** | https://vibe-o-matic.vercel.app |
+| **Sample GVC token to render** | `5618` |
+| **x402 endpoint (machine-callable)** | `POST /api/vibeify/x402` |
+| **x402 discovery (GET)** | `GET /api/vibeify/x402` → returns price + facilitator URL |
+| **Full agent contract docs** | [`X402.md`](./X402.md) |
+| **Source code** | https://github.com/economist5/vibe-o-matic |
+| **Ownership handoff guide** | [`WIRING.md`](./WIRING.md) — per-dependency take-over checklist for the GVC team |
+| **Test wallet (for judges to fund)** | (none required — judges can use their own; password-gated test-mode toggle available in UI) |
+
 ---
 
 ## The numbers
@@ -141,46 +182,6 @@ That's the whole integration. Any language that can sign EIP-712 typed data and 
 | Flux render (submit + poll) | ~30–40s |
 | Facilitator settle | ~2s |
 | **Total end-to-end** | **~35–55s** |
-
-### Quality
-Across N renders of the same input, we see ~90% "on-spec, judge-ready" outputs. The remaining ~10% have stochastic artifacts (occasional phantom mouth inside a beard, occasional nose regression, occasional skin-tone drift) that no amount of prompt engineering will fully eliminate against Flux's strong priors. **This is exactly the gap a GVC-trained LoRA would close.**
-
----
-
-## Try it (live demo)
-
-| | |
-|---|---|
-| **Live URL** | https://vibe-o-matic.vercel.app |
-| **Sample GVC token to render** | `5618` |
-| **x402 endpoint (machine-callable)** | `POST /api/vibeify/x402` |
-| **x402 discovery (GET)** | `GET /api/vibeify/x402` → returns price + facilitator URL |
-| **Full agent contract docs** | [`X402.md`](./X402.md) |
-| **Source code** | https://github.com/economist5/vibe-o-matic |
-| **Ownership handoff guide** | [`WIRING.md`](./WIRING.md) — per-dependency take-over checklist for the GVC team |
-| **Test wallet (for judges to fund)** | (none required — judges can use their own; password-gated test-mode toggle available in UI) |
-
----
-
-## The future: GVC LoRA partnership (the production upgrade)
-
-The hackathon build is a proof of concept. The production-grade version is a single architectural change: **swap our hand-tuned 200-line prompt for a LoRA trained on the GVC character set**.
-
-### Why it matters
-
-Today, our pipeline coerces a general-purpose image model (Flux 2 [pro]) into producing GVC-style output through extensive prompt engineering. Every "no nose" / "bearded characters have no mouth" / "olive skin is warm beige" rule exists because the base model's defaults pull elsewhere. The model is always *fighting its priors* to render canonical Vibetown.
-
-A LoRA trained on GVC characters **bakes those defaults into the model weights**, eliminating the fight. What this unlocks:
-
-| Today (reference-image pipeline) | With a GVC LoRA |
-|---|---|
-| ~200-line prompt fighting model priors | ~10-line prompt; model already knows GVC |
-| Stochastic phantom-mouth / nose / skin-tone artifacts | Disappear at the weights level |
-| 7 reference images per call | Could drop to 1–2 (scene only) |
-| Identity preserved via describer (kept) | Same |
-| ~$0.045 per render | Lower (fewer ref images uploaded) |
-
-Full roadmap, integration plan, and compatibility questions live in [`FUTURE.md`](./FUTURE.md).
 
 ---
 
