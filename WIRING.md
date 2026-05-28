@@ -184,11 +184,14 @@ Add to allowlist:  0xc93c375b022f0e707d211090d904f3266ccfce22
 
 Verification script and re-enable instructions live in [`LAUNCH.md`](./LAUNCH.md#-pending-vibestr-allowlist-add). After confirmation, two-line edit in `app/page.tsx` flips the UI from "SOON" to active.
 
-### 6. Update stale identifiers in source
+### 6. Update repo URL in source
 
-There's one stale GitHub URL embedded in the UI that points at the old repo:
+The UI surfaces a "View source" / clone-instructions snippet to agent developers. Two places to update after step 1:
 
-- `app/page.tsx` (in `AgentEndpointCard`): the `repoBase` constant points at `https://github.com/davel225/vibe-o-matic` — update to your new org's URL after step 1.
+- `app/page.tsx` (in `AgentEndpointCard`): the `repoBase` constant
+- `X402.md`: the `git clone …` line in the Quickstart section
+
+Both currently point at `https://github.com/economist5/vibe-o-matic` (the original author's account). Update both to the new GVC-owned URL once the GitHub transfer in step 1 completes.
 
 ---
 

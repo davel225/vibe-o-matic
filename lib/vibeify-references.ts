@@ -5,8 +5,8 @@ import { join, extname } from "node:path";
  * v2.2 multi-reference loader (provider-agnostic).
  *
  * Returns raw buffer + mimeType for each reference image, so any image
- * provider (gpt-image-1, gemini-2.5-flash-image, etc.) can consume them
- * without coupling this file to a specific SDK.
+ * provider (FLUX.2 [pro] today; other multi-ref endpoints in the future)
+ * can consume them without coupling this file to a specific SDK.
  *
  * Includes:
  *  - GVC-STYLE-REFERENCE.png — body T-pose template (front, 3/4, rear).

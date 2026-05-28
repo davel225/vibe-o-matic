@@ -3,20 +3,20 @@ import OpenAI from "openai";
 /**
  * Vision-based source description.
  *
- * Step 1 of the v2 pipeline: instead of passing the user's photo pixels
- * to gpt-image-1 (which then tries to preserve facial geometry including
- * the nose), we first describe the photo in TEXT with gpt-4o-mini, and
- * then ask gpt-image-1 to render that description against the GVC
- * reference image. No source pixels reach the image-generation model
- * → no nose pixels to preserve.
+ * Step 1 of the pipeline: instead of passing the user's photo pixels
+ * to the image-generation model (which then tries to preserve facial
+ * geometry including the nose), we first describe the photo in TEXT
+ * with gpt-4o-mini, and then ask the renderer (FLUX.2 [pro]) to render
+ * that description against the GVC reference images. No source pixels
+ * reach the image-generation model → no nose pixels to preserve.
  *
  * The vision prompt explicitly tells the describer to AVOID anything
  * about facial geometry. Identity markers (hair, beard, accessories,
  * clothing, palette) are what we carry forward — face anatomy comes
- * entirely from the GVC reference image in step 2.
+ * entirely from the GVC reference images in step 2.
  *
  * Cost: ~$0.0001 per call (gpt-4o-mini, low-detail image). Latency:
- * ~2-4 seconds. Both are dwarfed by the ~30s gpt-image-1 call.
+ * ~2-4 seconds. Both are dwarfed by the ~30s FLUX.2 [pro] call.
  */
 export async function describeSubject(
   buffer: Buffer,

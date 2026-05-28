@@ -54,7 +54,7 @@ type Generation = {
   scene: string;
   thumb: string;
   full: string;
-  /** Full prompt sent to gpt-image-1 / gemini for this render. */
+  /** Full prompt sent to FLUX.2 [pro] for this render. */
   prompt?: string;
   /** Text description produced by gpt-4o-mini that fed the renderer. */
   description?: string;
@@ -881,7 +881,7 @@ export default function Home() {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <p className="text-xs uppercase tracking-wider font-body text-white/40">
-                            Render prompt (to gemini-2.5-flash-image)
+                            Render prompt (to FLUX.2 [pro])
                           </p>
                           <button
                             onClick={() => {
@@ -1459,7 +1459,7 @@ function AgentEndpointCard() {
     typeof window !== "undefined"
       ? `${window.location.origin}/api/vibeify/x402`
       : "https://vibe-o-matic.vercel.app/api/vibeify/x402";
-  const repoBase = "https://github.com/davel225/vibe-o-matic";
+  const repoBase = "https://github.com/economist5/vibe-o-matic";
 
   // A one-liner that anyone can paste into a terminal to see what the
   // endpoint quotes (price, network, facilitator). No payment, no setup.
@@ -1473,7 +1473,7 @@ function AgentEndpointCard() {
 # The Node script is self-documenting — start with --help.
 
 # 1) Clone + install (one-time)
-git clone https://github.com/davel225/vibe-o-matic
+git clone https://github.com/economist5/vibe-o-matic
 cd vibe-o-matic && npm install
 
 # 2) See every available option (canonical reference)

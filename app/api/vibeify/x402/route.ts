@@ -61,7 +61,7 @@ function buildRequirements(resource: Resource): PaymentRequirements[] {
       network: USDC_NETWORK,
       maxAmountRequired,
       resource,
-      description: "One Vibetown render via gpt-image-1",
+      description: "One Vibetown render via FLUX.2 [pro]",
       mimeType: "application/json",
       payTo: getAddress(USDC_RECIPIENT),
       maxTimeoutSeconds: 300,

@@ -12,7 +12,8 @@ export type VibeifySize = "1024x1024" | "1024x1536" | "1536x1024";
 /**
  * v2.2 prompt — "vision-described, multi-reference render".
  *
- * Source pixels still never reach gpt-image-1. We now pass SEVEN reference
+ * Source pixels still never reach the image-gen model (today FLUX.2 [pro]).
+ * We pass SEVEN reference
  * images instead of one:
  *   - GVC-STYLE-REFERENCE.png — body T-pose template
  *   - face-*.jpg × 6 — canonical noseless GVC faces in different

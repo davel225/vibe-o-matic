@@ -1,25 +1,49 @@
 # vibe-o-matic
 
-A page that allows anyone to "vibe-ify" any image. 
+> *Vibe-ify any image into a tiny, cinematic Vibetown vinyl figurine — payable in VIBESTR or USDC, callable by humans or autonomous AI agents.*
 
-## What to do next
+Live deploy: **https://vibe-o-matic.vercel.app**
 
-You're all set! Here's how to start building:
+---
 
-1. Open this folder in Claude (just type `claude` in your terminal)
-2. Tell Claude what you want to change or add
-3. When you're happy, push to GitHub and deploy at vercel.com
+## Start here
 
-## Things to try
+This repo ships with five docs, each scoped to one audience. Pick the one that matches what you're trying to do:
 
-- "Build me a homepage with a hero section and GVC branding"
-- "Create a dashboard that shows NFT collection stats"
-- "Add a responsive navigation bar with the GVC logo"
-- "Build an animated stats row with counters that tick up on load"
-- "Make everything responsive and look great on mobile"
-- "Add smooth page transitions with Framer Motion"
+| You want to… | Read |
+|---|---|
+| Understand the project (judges, GVC community, prospective partners) | [**SUBMISSION.md**](./SUBMISSION.md) — the hackathon submission narrative |
+| Integrate as an autonomous AI agent (call the x402 endpoint) | [**X402.md**](./X402.md) — full API contract + Quickstart CLI |
+| Run / operate the production deploy (env vars, smoke tests, rollback) | [**LAUNCH.md**](./LAUNCH.md) — live-ops reference |
+| Take over ownership of the project (GVC team handoff) | [**WIRING.md**](./WIRING.md) — per-dependency take-over checklist |
+| Understand the post-hackathon roadmap (LoRA, VIBESTR rail activation) | [**FUTURE.md**](./FUTURE.md) — roadmap + due-diligence checklist |
 
-## Need help?
+---
 
-- Just ask Claude! It knows your project and the GVC brand.
-- Check out the GVC Discord for community support.
+## Quick demo
+
+```bash
+# x402 discovery — see the price, network, and facilitator
+curl -s https://vibe-o-matic.vercel.app/api/vibeify/x402
+```
+
+```bash
+# Render a Vibetown figurine via the agent CLI ($0.69 USDC, Base mainnet)
+git clone https://github.com/economist5/vibe-o-matic
+cd vibe-o-matic && npm install
+node scripts/test-x402-agent.mjs --help
+```
+
+---
+
+## Tech stack at a glance
+
+- **Frontend:** Next.js 14 App Router · TypeScript · Tailwind · Framer Motion
+- **Image generation:** Black Forest Labs FLUX.2 [pro]
+- **Vision:** OpenAI gpt-4o-mini (describer + agent picker)
+- **Payments:** x402 / USDC on Base (live) · VIBESTR on Ethereum (gated on contract allowlist)
+- **Hosting:** Vercel
+
+---
+
+*Made for the Good Vibes Club community.*
