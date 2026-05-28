@@ -741,13 +741,13 @@ export default function Home() {
               )}
 
               {result && !showBefore && (
-                <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 backdrop-blur px-2.5 py-1 rounded-full text-[10px] font-body uppercase tracking-wider text-gvc-gold border border-gvc-gold/30">
+                <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 backdrop-blur px-2.5 py-1 rounded-full text-[11px] font-body uppercase tracking-wider text-gvc-gold border border-gvc-gold/30">
                   <span className="w-1.5 h-1.5 rounded-full bg-gvc-gold animate-pulse" />
                   Vibetown v6
                 </div>
               )}
               {showBefore && result && (
-                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur px-2.5 py-1 rounded-full text-[10px] font-body uppercase tracking-wider text-white/70 border border-white/20">
+                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur px-2.5 py-1 rounded-full text-[11px] font-body uppercase tracking-wider text-white/70 border border-white/20">
                   Original
                 </div>
               )}
@@ -769,17 +769,17 @@ export default function Home() {
                       "VIBESTR rail goes live once the GVC team adds our treasury to the recipient allowlist. Coordinating now."
                     )
                   }
-                  className="px-3 py-1 rounded-full text-[11px] font-display text-white/40 cursor-not-allowed flex items-center gap-1.5"
+                  className="px-3 py-1 rounded-full text-xs font-display text-white/40 cursor-not-allowed flex items-center gap-1.5"
                 >
                   {TOTAL_VIBESTR.toString()} VIBESTR
-                  <span className="px-1.5 py-px rounded-full bg-pink-accent/20 text-pink-accent text-[9px] uppercase tracking-wider">
+                  <span className="px-1.5 py-px rounded-full bg-pink-accent/20 text-pink-accent text-[10px] uppercase tracking-wider">
                     soon
                   </span>
                 </button>
                 <button
                   onClick={() => setPaymentRail("usdc")}
                   disabled={testMode}
-                  className={`px-3 py-1 rounded-full text-[11px] font-display transition-all ${
+                  className={`px-3 py-1 rounded-full text-xs font-display transition-all ${
                     paymentRail === "usdc"
                       ? "bg-gvc-gold text-gvc-black"
                       : "text-white/60 hover:text-white"
@@ -790,7 +790,7 @@ export default function Home() {
               </div>
             </div>
             <div
-              className={`mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[10px] font-body transition-opacity ${
+              className={`mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[11px] font-body transition-opacity ${
                 testMode ? "opacity-30" : "text-white/40"
               }`}
             >
@@ -840,7 +840,7 @@ export default function Home() {
               <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/40 overflow-hidden">
                 <button
                   onClick={() => setShowDebug((v) => !v)}
-                  className="w-full px-4 py-2 flex items-center justify-between text-left text-[11px] font-body text-white/50 hover:text-white/80 transition-colors"
+                  className="w-full px-4 py-2 flex items-center justify-between text-left text-xs font-body text-white/50 hover:text-white/80 transition-colors"
                 >
                   <span className="flex items-center gap-2">
                     <span className="text-gvc-gold/70">{showDebug ? "▾" : "▸"}</span>
@@ -855,7 +855,7 @@ export default function Home() {
                     {lastDescription && (
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <p className="text-[10px] uppercase tracking-wider font-body text-white/40">
+                          <p className="text-[11px] uppercase tracking-wider font-body text-white/40">
                             Describer output (gpt-4o-mini)
                           </p>
                           <button
@@ -863,12 +863,12 @@ export default function Home() {
                               navigator.clipboard?.writeText(lastDescription);
                               toast.success("Description copied");
                             }}
-                            className="text-[10px] font-body text-white/30 hover:text-gvc-gold"
+                            className="text-[11px] font-body text-white/30 hover:text-gvc-gold"
                           >
                             copy
                           </button>
                         </div>
-                        <pre className="text-[11px] font-mono text-white/70 whitespace-pre-wrap leading-snug">
+                        <pre className="text-xs font-mono text-white/70 whitespace-pre-wrap leading-snug">
                           {lastDescription}
                         </pre>
                       </div>
@@ -876,7 +876,7 @@ export default function Home() {
                     {lastPrompt && (
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <p className="text-[10px] uppercase tracking-wider font-body text-white/40">
+                          <p className="text-[11px] uppercase tracking-wider font-body text-white/40">
                             Render prompt (to gemini-2.5-flash-image)
                           </p>
                           <button
@@ -884,12 +884,12 @@ export default function Home() {
                               navigator.clipboard?.writeText(lastPrompt);
                               toast.success("Prompt copied");
                             }}
-                            className="text-[10px] font-body text-white/30 hover:text-gvc-gold"
+                            className="text-[11px] font-body text-white/30 hover:text-gvc-gold"
                           >
                             copy
                           </button>
                         </div>
-                        <pre className="text-[11px] font-mono text-white/70 whitespace-pre-wrap leading-snug">
+                        <pre className="text-xs font-mono text-white/70 whitespace-pre-wrap leading-snug">
                           {lastPrompt}
                         </pre>
                       </div>
@@ -924,7 +924,7 @@ export default function Home() {
                       >
                         Test mode
                       </p>
-                      <p className="text-[10px] font-body text-white/40 truncate">
+                      <p className="text-[11px] font-body text-white/40 truncate">
                         {testMode
                           ? "Free render — no payment. Disable for real renders."
                           : "Password-gated free renders for the team."}
@@ -964,7 +964,7 @@ export default function Home() {
                     value={bypassPassword}
                     onChange={(e) => setBypassPassword(e.target.value)}
                     placeholder="Password"
-                    className="mt-2 w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/[0.06] text-white text-[11px] font-body focus:border-pink-accent/40 outline-none"
+                    className="mt-2 w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/[0.06] text-white text-xs font-body focus:border-pink-accent/40 outline-none"
                   />
                 )}
               </div>
@@ -972,8 +972,10 @@ export default function Home() {
 
           </motion.section>
 
-          {/* Controls — flex-col so the last panel can absorb extra vertical
-              space and the right column matches the preview's height. */}
+          {/* Controls — panels stack at their natural heights. We tried
+              stretching the last panel to match the preview, but that
+              created dead space inside Action & mood. Better to let the
+              right column be naturally shorter than the preview. */}
           <motion.aside
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -989,7 +991,7 @@ export default function Home() {
                     alt={sourceLabel}
                     className="w-8 h-8 rounded object-cover border border-white/10"
                   />
-                  <span className="flex-1 text-[11px] font-body text-gvc-gold truncate">
+                  <span className="flex-1 text-xs font-body text-gvc-gold truncate">
                     {sourceLabel || "Loaded"}
                   </span>
                   <button
@@ -1052,7 +1054,7 @@ export default function Home() {
                         setSceneView("reference");
                         setActiveBgIndex(0);
                       }}
-                      className={`text-[11px] font-body px-2.5 py-1 rounded-full border transition-all ${
+                      className={`text-xs font-body px-2.5 py-1 rounded-full border transition-all ${
                         active
                           ? "bg-gvc-gold/15 border-gvc-gold/50 text-gvc-gold"
                           : "bg-black/30 border-white/[0.08] text-white/60 hover:border-white/20"
@@ -1070,7 +1072,7 @@ export default function Home() {
                   <div className="flex items-center gap-1 mb-3 p-0.5 bg-black/40 rounded-lg w-fit">
                     <button
                       onClick={() => setSceneView("reference")}
-                      className={`text-[10px] font-body uppercase tracking-wider px-3 py-1 rounded-md transition-all ${
+                      className={`text-[11px] font-body uppercase tracking-wider px-3 py-1 rounded-md transition-all ${
                         sceneView === "reference"
                           ? "bg-gvc-gold/15 text-gvc-gold"
                           : "text-white/40 hover:text-white/70"
@@ -1080,7 +1082,7 @@ export default function Home() {
                     </button>
                     <button
                       onClick={() => setSceneView("text")}
-                      className={`text-[10px] font-body uppercase tracking-wider px-3 py-1 rounded-md transition-all ${
+                      className={`text-[11px] font-body uppercase tracking-wider px-3 py-1 rounded-md transition-all ${
                         sceneView === "text"
                           ? "bg-gvc-gold/15 text-gvc-gold"
                           : "text-white/40 hover:text-white/70"
@@ -1105,7 +1107,7 @@ export default function Home() {
                               key={i}
                               onClick={() => setActiveBgIndex(i)}
                               aria-label={`Show scene reference ${i + 1}`}
-                              className={`w-6 h-6 rounded-full text-[10px] font-body font-semibold transition-all ${
+                              className={`w-6 h-6 rounded-full text-[11px] font-body font-semibold transition-all ${
                                 activeBgIndex === i
                                   ? "bg-gvc-gold text-gvc-black"
                                   : "bg-black/40 border border-white/10 text-white/50 hover:border-gvc-gold/40 hover:text-white/80"
@@ -1145,8 +1147,8 @@ export default function Home() {
               )}
             </Panel>
 
-            <Panel title="3. Action & mood (optional)" className="flex-1">
-              <p className="text-[10px] font-body uppercase tracking-wider text-white/40 mb-1.5">
+            <Panel title="3. Action & mood (optional)">
+              <p className="text-[11px] font-body uppercase tracking-wider text-white/40 mb-1.5">
                 Action
               </p>
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -1156,7 +1158,7 @@ export default function Home() {
                     <button
                       key={p.label}
                       onClick={() => setAction(active ? "" : p.prompt)}
-                      className={`text-[11px] font-body px-2.5 py-1 rounded-full border transition-all ${
+                      className={`text-xs font-body px-2.5 py-1 rounded-full border transition-all ${
                         active
                           ? "bg-gvc-gold/15 border-gvc-gold/50 text-gvc-gold"
                           : "bg-black/30 border-white/[0.08] text-white/60 hover:border-white/20"
@@ -1175,7 +1177,7 @@ export default function Home() {
                 className="w-full px-3 py-2 rounded-lg bg-black/60 border border-white/[0.08] text-white text-sm font-body focus:border-gvc-gold/40 outline-none mb-4"
               />
 
-              <p className="text-[10px] font-body uppercase tracking-wider text-white/40 mb-1.5">
+              <p className="text-[11px] font-body uppercase tracking-wider text-white/40 mb-1.5">
                 Mood
               </p>
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -1185,7 +1187,7 @@ export default function Home() {
                     <button
                       key={p.label}
                       onClick={() => setMood(active ? "" : p.prompt)}
-                      className={`text-[11px] font-body px-2.5 py-1 rounded-full border transition-all ${
+                      className={`text-xs font-body px-2.5 py-1 rounded-full border transition-all ${
                         active
                           ? "bg-gvc-gold/15 border-gvc-gold/50 text-gvc-gold"
                           : "bg-black/30 border-white/[0.08] text-white/60 hover:border-white/20"
@@ -1216,7 +1218,7 @@ export default function Home() {
                     <button
                       key={s}
                       onClick={() => setSize(s)}
-                      className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-body transition-all ${
+                      className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-body transition-all ${
                         active
                           ? "bg-gvc-gold/15 border border-gvc-gold/40 text-gvc-gold"
                           : "bg-black/30 border border-white/[0.06] text-white/60"
@@ -1253,23 +1255,6 @@ export default function Home() {
             <Stat inline label="Last render" valueText={lastGenAgo} />
           </div>
         </motion.section>
-
-        {/* GVC stats kept as a small footer line (not the headline) */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.32 }}
-          className="mt-2 text-[10px] font-body text-white/30 text-center"
-        >
-          {typeof stats?.floorPriceUsd === "number"
-            ? `GVC floor: $${stats.floorPriceUsd.toLocaleString(undefined, {
-                maximumFractionDigits: 0,
-              })}`
-            : "GVC floor: —"}
-          {typeof stats?.numOwners === "number" && (
-            <> · {stats.numOwners.toLocaleString()} holders</>
-          )}
-        </motion.div>
 
         {/* ── History ────────────────────────────────────── */}
         {history.length > 0 && (
@@ -1314,10 +1299,10 @@ export default function Home() {
                     className="w-full aspect-square object-cover group-hover:opacity-90 transition-opacity"
                   />
                   <div className="p-2">
-                    <p className="font-body text-[11px] text-white/70 line-clamp-2 leading-snug">
+                    <p className="font-body text-xs text-white/70 line-clamp-2 leading-snug">
                       {g.scene}
                     </p>
-                    <p className="text-[10px] text-white/30 font-body mt-1">
+                    <p className="text-[11px] text-white/30 font-body mt-1">
                       {new Date(g.ts).toLocaleString([], {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -1332,8 +1317,9 @@ export default function Home() {
           </motion.section>
         )}
 
-        <p className="text-center text-white/20 text-xs font-body mt-10">
-          vibe-o-matic · powered by gpt-image-1 · made with the GVC Builder Kit
+        <p className="text-center text-white/30 text-sm font-body mt-10">
+          vibe-o-matic · FLUX.2 [pro] · OpenAI gpt-4o-mini · x402 on Base · made
+          for the GVC community
         </p>
       </div>
     </main>
@@ -1472,7 +1458,7 @@ node scripts/test-x402-agent.mjs \\
     <div className="rounded-2xl bg-gradient-to-br from-gvc-dark to-black border border-gvc-gold/30 p-6 shadow-[0_0_40px_rgba(255,224,72,0.05)]">
       {/* Header spans the whole width */}
       <div className="flex items-center justify-between gap-2 mb-4">
-        <p className="font-display text-[11px] uppercase tracking-[0.18em] text-gvc-gold flex items-center gap-1.5">
+        <p className="font-display text-xs uppercase tracking-[0.18em] text-gvc-gold flex items-center gap-1.5">
           <span className="text-base">🤖</span>
           Agent API
         </p>
@@ -1480,7 +1466,7 @@ node scripts/test-x402-agent.mjs \\
           href={`${repoBase}/blob/main/X402.md`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[11px] font-body text-gvc-gold/70 hover:text-gvc-gold transition-colors"
+          className="text-xs font-body text-gvc-gold/70 hover:text-gvc-gold transition-colors"
         >
           Full docs ↗
         </a>
@@ -1490,10 +1476,10 @@ node scripts/test-x402-agent.mjs \\
       <div className="grid md:grid-cols-3 gap-4">
         {/* Column 1 — How it works */}
         <div className="flex flex-col gap-1.5">
-          <p className="text-[9px] font-body uppercase tracking-wider text-white/30">
+          <p className="text-[10px] font-body uppercase tracking-wider text-white/30">
             How it works
           </p>
-          <ol className="space-y-1.5 text-[11px] font-body text-white/70 leading-snug">
+          <ol className="space-y-1.5 text-xs font-body text-white/70 leading-snug">
             <li className="flex gap-2">
               <span className="text-gvc-gold/70 font-display">1.</span>
               <span>Agent sends a photo + free-text intent</span>
@@ -1511,17 +1497,17 @@ node scripts/test-x402-agent.mjs \\
 
         {/* Column 2 — Endpoint */}
         <div className="flex flex-col gap-1.5">
-          <p className="text-[9px] font-body uppercase tracking-wider text-white/30">
+          <p className="text-[10px] font-body uppercase tracking-wider text-white/30">
             Endpoint
           </p>
           <div className="rounded-lg bg-black/50 border border-white/[0.06] px-3 py-2 flex-1">
             <code className="font-mono text-[12px] text-gvc-gold break-all leading-tight block">
               POST /api/vibeify/x402
             </code>
-            <p className="text-[10px] font-body text-white/40 mt-1.5">
+            <p className="text-[11px] font-body text-white/40 mt-1.5">
               Base mainnet · x402 / EIP-3009
             </p>
-            <p className="text-[10px] font-body text-white/40">
+            <p className="text-[11px] font-body text-white/40">
               No API key required
             </p>
           </div>
@@ -1529,26 +1515,26 @@ node scripts/test-x402-agent.mjs \\
 
         {/* Column 3 — Actions */}
         <div className="flex flex-col gap-1.5">
-          <p className="text-[9px] font-body uppercase tracking-wider text-white/30">
+          <p className="text-[10px] font-body uppercase tracking-wider text-white/30">
             Try it
           </p>
           <button
             onClick={() => copy(discoverySnippet, "Discovery curl")}
             title="One curl command that shows the endpoint's current price quote."
-            className="text-[11px] font-body px-3 py-2 rounded-lg bg-black/40 border border-white/[0.08] text-white/70 hover:border-gvc-gold/40 hover:text-gvc-gold transition-all text-left"
+            className="font-body px-4 py-3 rounded-lg bg-black/40 border border-white/[0.08] text-white/80 hover:border-gvc-gold/40 hover:text-gvc-gold transition-all text-left"
           >
-            See the price
-            <span className="block text-[9px] text-white/40 mt-0.5">
+            <span className="block text-sm font-semibold">See the price</span>
+            <span className="block text-xs text-white/40 mt-1">
               Discovery curl
             </span>
           </button>
           <button
             onClick={() => copy(runSnippet, "Run script")}
             title="Multi-line annotated setup + first render command. Paste, read the comments, fill in your key + photo, run."
-            className="text-[11px] font-body px-3 py-2 rounded-lg bg-gvc-gold/15 border border-gvc-gold/40 text-gvc-gold hover:bg-gvc-gold/25 transition-all text-left"
+            className="font-body px-4 py-3 rounded-lg bg-black/40 border border-white/[0.08] text-white/80 hover:border-gvc-gold/40 hover:text-gvc-gold transition-all text-left"
           >
-            Run a render
-            <span className="block text-[9px] text-gvc-gold/60 mt-0.5">
+            <span className="block text-sm font-semibold">Run a render</span>
+            <span className="block text-xs text-white/40 mt-1">
               Setup + first render script
             </span>
           </button>
@@ -1591,7 +1577,7 @@ function Stat({
 
   const content = (
     <>
-      <p className="text-white/40 font-body text-[10px] uppercase tracking-wider mb-1">
+      <p className="text-white/40 font-body text-[11px] uppercase tracking-wider mb-1">
         {label}
       </p>
       <p className="font-display text-3xl text-gvc-gold">
