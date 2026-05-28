@@ -163,15 +163,12 @@ export default function Home() {
   // ── Test-mode bypass ─────────────────────────────────────
   const [bypassAvailable, setBypassAvailable] = useState(false);
   const [bypassMode, setBypassMode] = useState(false);
-  // Test mode is server-gated by a password. The user types it here; the
-  // server validates the value against VIBEIFY_BYPASS_PASSWORD (default
-  // "0r4ng3") and only honors `bypass=1` when it matches. Stored in state
-  // so the toggle can preview whether it'd unlock (client-side hint only —
-  // not security, the server is authoritative).
+  // Test mode is server-gated by a password stored ONLY in the server's
+  // VIBEIFY_BYPASS_PASSWORD env var — the client never knows the actual
+  // value. We just collect whatever the user typed and let the server
+  // validate on POST. Wrong password → 403 + clear toast. This keeps the
+  // password out of the public client bundle entirely.
   const [bypassPassword, setBypassPassword] = useState("");
-  const TEST_PASSWORD_HINT = "0r4ng3"; // shared client/server constant; server
-                                       // can rotate via env var, this stays as
-                                       // the default UX hint.
 
   // ── External data ────────────────────────────────────────
   const [stats, setStats] = useState<CollectionStats | null>(null);
@@ -936,15 +933,17 @@ export default function Home() {
                   </div>
                   <button
                     onClick={() => {
-                      // Client-side check is just for UX gating. The server
-                      // validates the password independently on POST.
-                      if (bypassPassword === TEST_PASSWORD_HINT) {
+                      // Client doesn't know the actual password — it just
+                      // requires SOMETHING to be typed. The server validates
+                      // on the actual render call and returns 403 if wrong;
+                      // the user sees that as a clear toast and can retry.
+                      if (bypassPassword.length > 0) {
                         setBypassMode((v) => !v);
                       } else {
                         toast.error("Enter the test-mode password first");
                       }
                     }}
-                    disabled={bypassPassword !== TEST_PASSWORD_HINT}
+                    disabled={bypassPassword.length === 0}
                     className={`shrink-0 relative w-10 h-5 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
                       testMode ? "bg-pink-accent" : "bg-gvc-gray"
                     }`}

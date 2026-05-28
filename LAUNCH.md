@@ -82,7 +82,7 @@ nothing.
 | `BFL_API_KEY` | (set) | Flux 2 [pro] image generation |
 | `CDP_API_KEY_ID` | (set) | Coinbase CDP API key id — required for the x402 USDC facilitator to verify/settle on Base mainnet |
 | `CDP_API_KEY_SECRET` | (set) | Coinbase CDP API key secret — paired with the id above |
-| `VIBEIFY_BYPASS_PASSWORD` | (optional) | Overrides the default test-mode password (`0r4ng3`). Set this in production if you ever need to rotate the password. Leave unset to keep the default. Test mode itself is always *available*; the password is the gate. |
+| `VIBEIFY_BYPASS_PASSWORD` | **required for test mode** | Server-validated password for free-render bypass. If unset, every bypass request returns 403 (test mode is fully disabled). Password lives ONLY in this env var — never in source. Rotate at will. |
 
 ### How to provision the CDP keys
 
