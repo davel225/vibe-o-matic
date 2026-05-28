@@ -1235,7 +1235,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="grid md:grid-cols-3 gap-4 mt-6"
+          className="grid md:grid-cols-3 gap-4 mt-6 items-stretch"
         >
           <Stat label="Total renders" value={totalGens} />
           <Stat label="Last render" valueText={lastGenAgo} />
@@ -1394,11 +1394,11 @@ function WalletPill({
 }
 
 /**
- * AgentEndpointCard — small CTA cell for AI-agent developers landing on the
- * page. Shows the x402 endpoint, current price, and gives one-click copy
- * affordances for the discovery URL + the headless test command, plus a link
- * to the full X402.md docs. Lives in the stats row in place of the prior
- * "GVC floor" stat.
+ * AgentEndpointCard — CTA cell for AI-agent developers landing on the
+ * page. Lives in the stats row in place of the prior "GVC floor" stat.
+ * Designed to fill more vertical space than the neighboring Stat cells so
+ * its contents (header, endpoint code block, price line, copy buttons) have
+ * breathing room without feeling crowded.
  */
 function AgentEndpointCard() {
   const endpoint =
@@ -1416,37 +1416,62 @@ function AgentEndpointCard() {
   };
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-gvc-dark to-black border border-gvc-gold/20 p-5 flex flex-col gap-2">
+    <div className="rounded-2xl bg-gradient-to-br from-gvc-dark to-black border border-gvc-gold/30 p-6 flex flex-col gap-3 shadow-[0_0_40px_rgba(255,224,72,0.05)]">
+      {/* Header row: branded label + docs link */}
       <div className="flex items-center justify-between gap-2">
-        <p className="text-white/40 font-body text-[10px] uppercase tracking-wider flex items-center gap-1.5">
-          <span>🤖</span>
-          For AI agents
+        <p className="font-display text-[11px] uppercase tracking-[0.18em] text-gvc-gold flex items-center gap-1.5">
+          <span className="text-base">🤖</span>
+          Agent API
         </p>
         <a
           href={`${repoBase}/blob/main/X402.md`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[10px] font-body text-gvc-gold/70 hover:text-gvc-gold"
+          className="text-[11px] font-body text-gvc-gold/70 hover:text-gvc-gold transition-colors"
         >
           Docs ↗
         </a>
       </div>
-      <p className="font-display text-sm text-gvc-gold leading-tight">
-        POST /api/vibeify/x402
+
+      {/* Endpoint as a distinct code-styled block — the most important info */}
+      <div className="rounded-lg bg-black/50 border border-white/[0.06] px-3 py-2">
+        <p className="text-[9px] font-body uppercase tracking-wider text-white/30 mb-0.5">
+          Endpoint
+        </p>
+        <code className="font-mono text-[13px] text-gvc-gold break-all leading-tight">
+          POST /api/vibeify/x402
+        </code>
+      </div>
+
+      {/* Price + protocol details */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-body text-white/60">
+        <span className="text-white/80 font-semibold">$0.69 USDC</span>
+        <span className="text-white/20">·</span>
+        <span>Base mainnet</span>
+        <span className="text-white/20">·</span>
+        <span>x402 protocol</span>
+      </div>
+
+      {/* One-line description so a judge skimming gets the point instantly */}
+      <p className="text-[11px] font-body text-white/45 leading-snug">
+        Autonomous agents pay per call via signed USDC authorizations. No API
+        keys, no signup — just an EIP-3009 signature.
       </p>
-      <p className="text-[10px] font-body text-white/50">
-        $0.69 USDC · Base mainnet · x402 protocol
-      </p>
-      <div className="flex flex-wrap gap-1.5 mt-1">
+
+      {/* Spacer pushes buttons to the bottom of the card */}
+      <div className="flex-1" />
+
+      {/* Action buttons */}
+      <div className="grid grid-cols-2 gap-2">
         <button
           onClick={() => copy(endpoint, "Endpoint URL")}
-          className="text-[10px] font-body px-2 py-1 rounded-md bg-black/40 border border-white/[0.08] text-white/60 hover:border-gvc-gold/30 hover:text-gvc-gold transition-all"
+          className="text-[11px] font-body px-3 py-2 rounded-lg bg-black/40 border border-white/[0.08] text-white/70 hover:border-gvc-gold/40 hover:text-gvc-gold transition-all"
         >
           Copy endpoint
         </button>
         <button
           onClick={() => copy(cliSnippet, "CLI snippet")}
-          className="text-[10px] font-body px-2 py-1 rounded-md bg-black/40 border border-white/[0.08] text-white/60 hover:border-gvc-gold/30 hover:text-gvc-gold transition-all"
+          className="text-[11px] font-body px-3 py-2 rounded-lg bg-black/40 border border-white/[0.08] text-white/70 hover:border-gvc-gold/40 hover:text-gvc-gold transition-all"
         >
           Copy CLI
         </button>
@@ -1482,11 +1507,11 @@ function Stat({
   }, [value]);
 
   return (
-    <div className="rounded-2xl bg-gvc-dark border border-white/[0.08] p-5">
+    <div className="rounded-2xl bg-gvc-dark border border-white/[0.08] p-5 flex flex-col justify-center">
       <p className="text-white/40 font-body text-[10px] uppercase tracking-wider mb-1">
         {label}
       </p>
-      <p className="font-display text-2xl text-gvc-gold">
+      <p className="font-display text-3xl text-gvc-gold">
         {typeof value === "number" ? display.toLocaleString() : valueText ?? "—"}
       </p>
     </div>
