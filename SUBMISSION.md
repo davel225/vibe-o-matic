@@ -44,8 +44,10 @@ The agent ALWAYS picks from a curated allowlist (never free-form scene text), ke
 
 This is the difference between "an API that happens to charge money" and "a service designed for autonomous AI agents from day one."
 
-### 🧠 Vision-first describer (privacy + identity preservation)
-Source photo pixels **never reach the image generator**. We use gpt-4o-mini vision to convert the photo into a structured text description (hair, facial hair, clothing, fine details — but never face geometry), then pass *only* that text to Flux 2 [pro] along with our GVC face-structure reference set. Result: identity preserved (clothing, accessories, hair, beard) but face anatomy comes from canonical GVC templates, not the source photo.
+### 🧠 Two identity paths — vision-first for photos, reference-first for GVC tokens
+**Photo path (default).** Source photo pixels **never reach the image generator**. We use gpt-4o-mini vision to convert the photo into a structured text description (hair, facial hair, clothing, fine details — but never face geometry), then pass *only* that text to Flux 2 [pro] along with our GVC face-structure reference set. Identity preserved (clothing, accessories, hair, beard); face anatomy comes from canonical GVC templates, not the source photo.
+
+**GVC-token path.** When the source is itself a GVC NFT (the user loaded one by token ID), we **skip the describer entirely** and inject the NFT as a Flux reference image instead. Translating a yellow-bodied Robot GVC through a "warm beige human skin" describer would lose the canonical identity; using the NFT's own pixels as the reference preserves body color, character type (Robot / Default / Alien / etc.), hair, and accessories at the pixel level. Same render contract, two pipelines — the server picks the right one based on a `sourceKind` form field. Right tool for the right input.
 
 ### 🎨 Multi-reference Flux 2 pipeline
 Each render sends 7 reference images to Flux: 1 body T-pose template, 4 curated face references (showing different expressions + bearded vs clean-shaven structure), and up to 2 scene-specific backgrounds. The model has visual exemplars of what a GVC character looks like — not just text rules.
@@ -77,7 +79,7 @@ The connection runs deeper than visual cameo, too: vibe-o-matic is textbook mate
 ### Surface 1 — The web UI (the human path)
 A judge or GVC holder can:
 1. Open the app
-2. Upload a photo *or* load any GVC token by ID (try `5618`)
+2. Upload a photo *or* load any GVC token by ID (try `5618`) — the server picks the right pipeline for each source type (see *Two identity paths* above)
 3. Pick a scene from the curated catalog (Tropical Beach, Château de GODL, Neon Street with OpenSea signage, Rooftop Sunset, Lagoon Pier, Coastal Drive)
 4. Pick an action emoji (🤝 Friendship, 🎉 Celebrate, 🤳 Selfie, 🧘 Zen, 💃 Dance, 🏍️ Motorcycle, 🚁 Helicopter) and a mood (😊 Joyful, 😎 Chill, 🔥 Hyped, 🌙 Dreamy, 💪 Heroic, 🕶️ Noir, 🎈 Playful, 📼 Retro)
 5. Choose orientation (square / portrait / landscape)
