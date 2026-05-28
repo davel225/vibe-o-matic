@@ -27,7 +27,7 @@ A judge or GVC holder can:
 1. Open the app
 2. Upload a photo *or* load any GVC token by ID (try `5618`)
 3. Pick a scene from the curated catalog (Tropical Beach, Château de GODL, Neon Street with OpenSea signage, Rooftop Sunset, Lagoon Pier, Coastal Drive)
-4. Pick an action emoji (🤝 Friendship, 🎉 Celebrate, 🤳 Group selfie, 🧘 Zen, 💃 Dance) and a mood (😊 😎 🔥 🌙 💪)
+4. Pick an action emoji (🤝 Friendship, 🎉 Celebrate, 🤳 Selfie, 🧘 Zen, 💃 Dance, 🏍️ Motorcycle, 🚁 Helicopter) and a mood (😊 Joyful, 😎 Chill, 🔥 Hyped, 🌙 Dreamy, 💪 Heroic, 🕶️ Noir, 🎈 Playful, 📼 Retro)
 5. Choose orientation (square / portrait / landscape)
 6. Click **Vibeify** → connect MetaMask → sign 99 VIBESTR payment → ~40s later, a Vibetown render of themselves
 
@@ -74,7 +74,7 @@ The `/api/vibeify/x402` endpoint accepts two modes:
 - **Explicit**: caller provides scene/action/mood/size
 - **Agent mode**: caller sends just `agentMode=1` + optional intent; server-side gpt-4o-mini picks the params from the curated catalog
 
-The agent ALWAYS picks from a curated allowlist (never free-form scene text), keeping the renderer's MP budget and prompt structure predictable. If the picker returns an unknown id, we gracefully fall back to sensible defaults — caller paid USDC, deserves *some* render.
+The agent ALWAYS picks from a curated allowlist (never free-form scene text), keeping the renderer's MP budget and prompt structure predictable. If the picker returns an unknown id, we gracefully fall back to sensible defaults — caller paid USDC, deserves *some* render. The current catalog: 6 scenes, 7 actions, 8 moods, 3 aspect ratios — 1,008 combinations the picker can resolve a free-text intent to.
 
 This is the difference between "an API that happens to charge money" and "a service designed for autonomous AI agents from day one."
 
@@ -92,8 +92,9 @@ The Neon Street scene includes a custom-built neon OpenSea logo as one of the st
 | **x402 endpoint (machine-callable)** | `POST /api/vibeify/x402` |
 | **x402 discovery (GET)** | `GET /api/vibeify/x402` → returns price + facilitator URL |
 | **Full agent contract docs** | [`X402.md`](./X402.md) |
-| **Source code** | https://github.com/davel225/vibe-o-matic |
-| **Test wallet (for judges to fund)** | (none required — judges can use their own; test-mode toggle available) |
+| **Source code** | https://github.com/economist5/vibe-o-matic |
+| **Ownership handoff guide** | [`WIRING.md`](./WIRING.md) — per-dependency take-over checklist for the GVC team |
+| **Test wallet (for judges to fund)** | (none required — judges can use their own; password-gated test-mode toggle available in UI) |
 
 ---
 
@@ -187,7 +188,8 @@ Full roadmap, integration plan, and compatibility questions in [`FUTURE.md`](./F
 | `lib/wallet.ts` | MetaMask + x402-fetch wrapper |
 | `X402.md` | Full external-facing x402 API contract |
 | `FUTURE.md` | LoRA roadmap + post-hackathon plans |
-| `LAUNCH.md` | Pre-launch checklist (testnet → mainnet flip) |
+| `LAUNCH.md` | Live-ops reference (env vars, smoke tests, rollback procedures) |
+| `WIRING.md` | Ownership handoff to GVC — every external dependency, who needs to own it, take-over steps |
 
 ---
 

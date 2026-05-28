@@ -11,11 +11,12 @@ as a pre-launch flip checklist (testnet → mainnet); rewritten in commit
 | Component | State | Network | Notes |
 |---|---|---|---|
 | **Live URL** | ✅ shipping | – | https://vibe-o-matic.vercel.app |
-| **Source** | ✅ public | – | https://github.com/davel225/vibe-o-matic (branch `main`) |
-| **Web UI USDC rail** | ✅ live | Base mainnet (8453) | Default rail. $0.69 USDC per render. Settles via [x402 facilitator](https://x402.org/facilitator). |
+| **Source** | ✅ public | – | https://github.com/economist5/vibe-o-matic (branch `main`) |
+| **Web UI USDC rail** | ✅ live | Base mainnet (8453) | Default rail. $0.69 USDC per render. Settles via [Coinbase CDP x402 facilitator](https://api.cdp.coinbase.com/platform/v2/x402). |
 | **Web UI VIBESTR rail** | ⏳ pending | Ethereum mainnet (1) | Shown as `SOON` pill. Awaiting GVC team adding our treasury to VIBESTR's recipient allowlist. |
 | **x402 agent endpoint** | ✅ live | Base mainnet (8453) | `POST /api/vibeify/x402` — machine-callable, identical USDC settlement. |
-| **Test-mode bypass** | 🔒 disabled in prod | – | `VIBEIFY_ALLOW_BYPASS` must remain **unset** in Vercel Production env. |
+| **Test-mode bypass** | 🔒 password-gated | – | Server validates `VIBEIFY_BYPASS_PASSWORD` env var; unset → every bypass request returns 403 (test mode fully disabled). |
+| **Ownership handoff** | 📋 see [WIRING.md](./WIRING.md) | – | Per-dependency take-over checklist (env vars, wallets, hosting, accounts). |
 
 ### Treasury / payment addresses
 
@@ -116,7 +117,7 @@ curl -fsS -w "\n" https://vibe-o-matic.vercel.app/api/vibeify/x402 | head -c 200
 
 Expected discovery body:
 ```json
-{"network":"base","price":"$0.69","payTo":"0xc93c375b022f0e707d211090d904f3266ccfce22","facilitator":"https://x402.org/facilitator"}
+{"network":"base","price":"$0.69","payTo":"0xc93c375b022f0e707d211090d904f3266ccfce22","facilitator":"https://api.cdp.coinbase.com/platform/v2/x402"}
 ```
 
 If `network` returns anything other than `"base"`, the deploy is serving stale
@@ -206,8 +207,8 @@ The mainnet flip shipped in `a513329`. The verification at that time:
 - [x] USDC contract = mainnet `0x833589fCD…2913` in `lib/wallet.ts`
 - [x] `ensureBase`, `getUsdcBalanceBase` (renamed from Sepolia counterparts)
 - [x] `scripts/test-x402-agent.mjs` imports `base` from `viem/chains`
-- [x] `VIBEIFY_ALLOW_BYPASS` unset in Vercel Production
-- [x] `OPENAI_API_KEY` + `BFL_API_KEY` set in Vercel Production
+- [x] `VIBEIFY_BYPASS_PASSWORD` (formerly `VIBEIFY_ALLOW_BYPASS`) set in Vercel Production (or intentionally unset to fully disable test mode)
+- [x] `OPENAI_API_KEY` + `BFL_API_KEY` + `CDP_API_KEY_ID` + `CDP_API_KEY_SECRET` all set in Vercel Production
 - [x] `npm run build` clean locally
 - [x] `GET /api/vibeify/x402` returns `network: "base"` from the deployed URL
 - [x] Homepage returns 200
@@ -219,6 +220,9 @@ The mainnet flip shipped in `a513329`. The verification at that time:
 ## 📌 Known follow-ups (not blockers)
 
 - **VIBESTR allowlist add** — see "Pending" section above. The one-line code re-enable will land the moment GVC confirms.
+- **`lib/wallet.ts` chain-add fallback uses Sepolia params for mainnet** — when MetaMask doesn't have Base added and we trigger `wallet_addEthereumChain`, the params block is labeled `"Base Sepolia"` with `sepolia.base.org` RPC even though we're on chain id 8453 (mainnet). New users may see a misconfigured chain. One-line fix: rewrite the params for mainnet. Existing users (already on Base) are unaffected.
+- **In-memory tx-hash replay protection** — `USED_TX_HASHES` Set in `app/api/vibeify/route.ts` resets on every Vercel cold start, meaning a redeploy can re-unlock previously-spent VIBESTR tx hashes. Out-of-scope while VIBESTR is gated on the allowlist anyway; revisit when the rail goes live (move to KV or sign nonces).
+- **Treasury address duplicated across the codebase** — `lib/payment-config.ts` (×2), `LAUNCH.md` (×many), `WIRING.md`. If GVC rotates the address, every reference needs updating. Worth a small refactor that exports a single `TREASURY_ADDRESS` re-used everywhere.
 - **Next.js security patch** — `next@14.2.15` has an advisory; safe to bump to the latest 14.x patch release any time post-hackathon.
 - **x402 v1 → v2 migration** — current packages are deprecated v1. Works fine against the facilitator today; v2 requires Next 16 and is a non-trivial migration. Filed in `FUTURE.md`.
 - **npm deprecation warnings** — `uuid@9`, `@metamask/sdk@0.33.1`, etc. Noisy but functional.

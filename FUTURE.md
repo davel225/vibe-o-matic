@@ -58,7 +58,10 @@ Estimated integration effort: **~1 day** if the LoRA is BFL-hosted, **~2–3 day
 ## 📋 Other future additions
 
 ### Prompt-machine integration
-Pull a broader catalog of scene/action/mood combinations from the GVC prompt-machine into the preset library, expanding beyond the current six curated scenes.
+Pull a broader catalog of scene/action/mood combinations from the GVC prompt-machine into the preset library. The current catalog is 6 scenes / 7 actions / 8 moods = 336 server-side picker combinations (× 3 aspect ratios = 1,008). A prompt-machine sync could 10× that without changing the agent contract.
+
+### Agent SDK / language clients
+The current agent integration surface is two things: a documented HTTP shape (`X402.md`) and one example Node CLI (`scripts/test-x402-agent.mjs`). Both are great for technical agents, but a per-language SDK (Python, Go, TypeScript) with `agentMode` as a single function call would lower the barrier further. The Node script already shows the canonical flow (discovery → balance preflight → EIP-3009 sign → 402-then-retry → image save) — porting it to two or three languages is straightforward.
 
 ### Multi-character composition
 Today the pipeline handles one uploaded photo with potentially multiple subjects. A future version could let users upload multiple separate photos and compose them into a single Vibetown scene (e.g. two friends from two different photos, vibe-ified together).
