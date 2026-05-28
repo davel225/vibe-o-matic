@@ -41,7 +41,7 @@ External AI agents hit `POST /api/vibeify/x402` with two body params: an image a
 A Node script (`scripts/test-x402-agent.mjs`) demonstrates the full flow without a browser:
 
 ```bash
-AGENT_PRIVATE_KEY=0x... node scripts/test-x402-agent.mjs ./photo.jpg "rockstars at an after-party"
+AGENT_PRIVATE_KEY=0x... node scripts/test-x402-agent.mjs ./agent-photo.jpg "rockstars at an after-party"
 ```
 
 The script signs the EIP-3009 USDC authorization, hits our endpoint, and saves the rendered PNG to disk. **This is the future of how AI agents pay for services on the web** — no API key, no signup, no human in the loop.

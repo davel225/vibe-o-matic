@@ -12,6 +12,12 @@ img_*.png
 img_*.jpg
 img_*.jpeg
 
+# Recommended convention for the headless agent test script's input photo —
+# drop your own photo here (`agent-photo.jpg` / `.png` / etc.) and run:
+#   node scripts/test-x402-agent.mjs ./agent-photo.jpg "your intent"
+agent-photo.*
+test-photo.*
+
 # Outputs from scripts/test-x402-agent.mjs — test artifacts, not source
 x402-agent-out-*.png
 

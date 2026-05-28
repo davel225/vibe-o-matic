@@ -12,8 +12,12 @@
 // Usage:
 //   AGENT_PRIVATE_KEY=0x... node scripts/test-x402-agent.mjs <image-path> [intent text...]
 //
+// Add your own photo to the project root first (any JPG/PNG of a person
+// works best — GVC logos and other non-portrait images can cause the
+// gpt-4o-mini describer to bail out with a refusal).
+//
 // Example:
-//   AGENT_PRIVATE_KEY=0xabc... node scripts/test-x402-agent.mjs ./me.jpg "rockstars at an after-party"
+//   AGENT_PRIVATE_KEY=0xabc... node scripts/test-x402-agent.mjs ./agent-photo.jpg "rockstars at an after-party"
 //
 // If the target server isn't localhost:3000, set:
 //   TARGET=https://your-host node scripts/test-x402-agent.mjs ...
@@ -45,7 +49,17 @@ if (!PRIVATE_KEY) {
   process.exit(1);
 }
 if (!imagePath) {
-  console.error("Usage: AGENT_PRIVATE_KEY=0x... node scripts/test-x402-agent.mjs <image-path> [intent]");
+  console.error("ERROR: no image path supplied.");
+  console.error();
+  console.error("Step 1 — drop a photo into the project root.");
+  console.error("   Any JPG/PNG of a person works best. (GVC logos and other");
+  console.error("   non-portrait images can trip the gpt-4o-mini describer.)");
+  console.error();
+  console.error("Step 2 — run the script with its path:");
+  console.error("   AGENT_PRIVATE_KEY=0x... node scripts/test-x402-agent.mjs ./agent-photo.jpg \"<intent>\"");
+  console.error();
+  console.error("`intent` is a free-text vibe (e.g. \"rockstars at an after-party\").");
+  console.error("Omit it and the agent decides from the photo alone.");
   process.exit(1);
 }
 
