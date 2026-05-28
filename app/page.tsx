@@ -1404,20 +1404,44 @@ function AgentEndpointCard() {
   const endpoint =
     typeof window !== "undefined"
       ? `${window.location.origin}/api/vibeify/x402`
-      : "/api/vibeify/x402";
+      : "https://vibe-o-matic.vercel.app/api/vibeify/x402";
   const repoBase = "https://github.com/davel225/vibe-o-matic";
-  const cliSnippet = `AGENT_PRIVATE_KEY=0x... node scripts/test-x402-agent.mjs "your intent"`;
+
+  // A one-liner that anyone can paste into a terminal to see what the
+  // endpoint quotes (price, network, facilitator). No payment, no setup.
+  const discoverySnippet = `curl -s ${endpoint}`;
+
+  // A fully self-explanatory setup-and-run snippet. Comments narrate what
+  // each step does so a user pasting it into a terminal can read through
+  // it and understand without needing to read other docs first.
+  const runSnippet = `# vibe-o-matic agent runner — full setup + first render
+# Real USDC moves on Base mainnet per call ($0.69).
+
+# 1) Clone the repo (one-time)
+git clone https://github.com/davel225/vibe-o-matic
+cd vibe-o-matic
+npm install
+
+# 2) Drop a portrait at ./agent-photo.jpg (gitignored convention)
+#    Any clear photo of a person works best.
+cp ~/path/to/your-photo.jpg ./agent-photo.jpg
+
+# 3) Run a render. Replace 0x... with a Base-mainnet key holding >= $0.69 USDC.
+#    The free-text intent guides the agent's scene/action/mood/size choice.
+AGENT_PRIVATE_KEY=0x... \\
+  node scripts/test-x402-agent.mjs "rockstars at an after-party"
+`;
 
   const copy = (text: string, label: string) => {
     navigator.clipboard
       ?.writeText(text)
-      .then(() => toast.success(`${label} copied`))
+      .then(() => toast.success(`${label} copied — paste into your terminal`))
       .catch(() => toast.error("Copy failed"));
   };
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-gvc-dark to-black border border-gvc-gold/30 p-6 flex flex-col gap-3 shadow-[0_0_40px_rgba(255,224,72,0.05)]">
-      {/* Header row: branded label + docs link */}
+    <div className="rounded-2xl bg-gradient-to-br from-gvc-dark to-black border border-gvc-gold/30 p-6 flex flex-col gap-4 shadow-[0_0_40px_rgba(255,224,72,0.05)]">
+      {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-[11px] uppercase tracking-[0.18em] text-gvc-gold flex items-center gap-1.5">
           <span className="text-base">🤖</span>
@@ -1429,51 +1453,62 @@ function AgentEndpointCard() {
           rel="noopener noreferrer"
           className="text-[11px] font-body text-gvc-gold/70 hover:text-gvc-gold transition-colors"
         >
-          Docs ↗
+          Full docs ↗
         </a>
       </div>
 
-      {/* Endpoint as a distinct code-styled block — the most important info */}
+      {/* What an agent does, in plain language */}
+      <div>
+        <p className="text-[9px] font-body uppercase tracking-wider text-white/30 mb-1.5">
+          How it works
+        </p>
+        <ol className="space-y-1 text-[11px] font-body text-white/70 leading-snug">
+          <li className="flex gap-2">
+            <span className="text-gvc-gold/70 font-display">1.</span>
+            <span>Agent sends a photo + free-text intent</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-gvc-gold/70 font-display">2.</span>
+            <span>Agent signs one gasless USDC authorization ($0.69)</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-gvc-gold/70 font-display">3.</span>
+            <span>~40s later, image returned + USDC settled on-chain</span>
+          </li>
+        </ol>
+      </div>
+
+      {/* Endpoint */}
       <div className="rounded-lg bg-black/50 border border-white/[0.06] px-3 py-2">
         <p className="text-[9px] font-body uppercase tracking-wider text-white/30 mb-0.5">
           Endpoint
         </p>
-        <code className="font-mono text-[13px] text-gvc-gold break-all leading-tight">
+        <code className="font-mono text-[12px] text-gvc-gold break-all leading-tight">
           POST /api/vibeify/x402
         </code>
+        <p className="text-[10px] font-body text-white/40 mt-1">
+          Base mainnet · x402 / EIP-3009 · no API key required
+        </p>
       </div>
-
-      {/* Price + protocol details */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-body text-white/60">
-        <span className="text-white/80 font-semibold">$0.69 USDC</span>
-        <span className="text-white/20">·</span>
-        <span>Base mainnet</span>
-        <span className="text-white/20">·</span>
-        <span>x402 protocol</span>
-      </div>
-
-      {/* One-line description so a judge skimming gets the point instantly */}
-      <p className="text-[11px] font-body text-white/45 leading-snug">
-        Autonomous agents pay per call via signed USDC authorizations. No API
-        keys, no signup — just an EIP-3009 signature.
-      </p>
 
       {/* Spacer pushes buttons to the bottom of the card */}
       <div className="flex-1" />
 
-      {/* Action buttons */}
+      {/* Action buttons — labelled by what the user GETS, not by format */}
       <div className="grid grid-cols-2 gap-2">
         <button
-          onClick={() => copy(endpoint, "Endpoint URL")}
+          onClick={() => copy(discoverySnippet, "Discovery curl")}
+          title="One curl command that shows the endpoint's current price quote."
           className="text-[11px] font-body px-3 py-2 rounded-lg bg-black/40 border border-white/[0.08] text-white/70 hover:border-gvc-gold/40 hover:text-gvc-gold transition-all"
         >
-          Copy endpoint
+          See the price
         </button>
         <button
-          onClick={() => copy(cliSnippet, "CLI snippet")}
-          className="text-[11px] font-body px-3 py-2 rounded-lg bg-black/40 border border-white/[0.08] text-white/70 hover:border-gvc-gold/40 hover:text-gvc-gold transition-all"
+          onClick={() => copy(runSnippet, "Run script")}
+          title="Multi-line annotated setup + first render command. Paste, read the comments, fill in your key + photo, run."
+          className="text-[11px] font-body px-3 py-2 rounded-lg bg-gvc-gold/15 border border-gvc-gold/40 text-gvc-gold hover:bg-gvc-gold/25 transition-all"
         >
-          Copy CLI
+          Run a render
         </button>
       </div>
     </div>
