@@ -766,7 +766,7 @@ export default function Home() {
                 testMode ? "opacity-30 pointer-events-none" : ""
               }`}
             >
-              <div className="inline-flex rounded-full bg-black/40 border border-white/[0.06] p-0.5">
+              <div className="inline-flex rounded-full bg-black/40 border border-white/[0.08] p-0.5">
                 <button
                   onClick={() =>
                     toast(
@@ -841,7 +841,7 @@ export default function Home() {
 
             {/* Debug panel — prompt + describer output for the last render */}
             {(lastPrompt || lastDescription) && (
-              <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/40 overflow-hidden">
+              <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/40 overflow-hidden">
                 <button
                   onClick={() => setShowDebug((v) => !v)}
                   className="w-full px-4 py-2 flex items-center justify-between text-left text-sm font-body text-white/50 hover:text-white/80 transition-colors"
@@ -855,7 +855,7 @@ export default function Home() {
                   </span>
                 </button>
                 {showDebug && (
-                  <div className="border-t border-white/[0.06] px-4 py-3 space-y-3 max-h-[400px] overflow-y-auto">
+                  <div className="border-t border-white/[0.08] px-4 py-3 space-y-3 max-h-[400px] overflow-y-auto">
                     {lastDescription && (
                       <div>
                         <div className="flex items-center justify-between mb-1">
@@ -976,7 +976,7 @@ export default function Home() {
             </Panel>
 
             <Panel title="2. The scene">
-              <div className="flex flex-wrap gap-1.5 mb-3">
+              <div className="flex flex-wrap gap-1 mb-3">
                 {SCENE_PRESETS.map((p) => {
                   const active = scene === p.scene;
                   return (
@@ -988,7 +988,7 @@ export default function Home() {
                         setSceneView("reference");
                         setActiveBgIndex(0);
                       }}
-                      className={`text-sm font-body px-2.5 py-1 rounded-full border transition-all ${
+                      className={`text-sm font-body px-2 py-1 rounded-full border transition-all ${
                         active
                           ? "bg-gvc-gold/15 border-gvc-gold/50 text-gvc-gold"
                           : "bg-black/30 border-white/[0.08] text-white/60 hover:border-white/20"
@@ -1154,8 +1154,8 @@ export default function Home() {
                       onClick={() => setSize(s)}
                       className={`flex-1 px-2 py-1.5 rounded-lg text-sm font-body transition-all ${
                         active
-                          ? "bg-gvc-gold/15 border border-gvc-gold/40 text-gvc-gold"
-                          : "bg-black/30 border border-white/[0.06] text-white/60"
+                          ? "bg-gvc-gold/15 border border-gvc-gold/50 text-gvc-gold"
+                          : "bg-black/30 border border-white/[0.08] text-white/60"
                       }`}
                     >
                       {label}
@@ -1177,7 +1177,7 @@ export default function Home() {
                 className={`px-3 py-2 rounded-xl border ${
                   testMode
                     ? "bg-pink-accent/10 border-pink-accent/40"
-                    : "bg-black/30 border-white/[0.06]"
+                    : "bg-black/30 border-white/[0.08]"
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -1231,7 +1231,7 @@ export default function Home() {
                     value={bypassPassword}
                     onChange={(e) => setBypassPassword(e.target.value)}
                     placeholder="Password"
-                    className="mt-2 w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/[0.06] text-white text-sm font-body focus:border-pink-accent/40 outline-none"
+                    className="mt-2 w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/[0.08] text-white text-sm font-body focus:border-pink-accent/40 outline-none"
                   />
                 )}
               </div>
@@ -1296,7 +1296,7 @@ export default function Home() {
                     setLastPrompt(g.prompt ?? null);
                     setLastDescription(g.description ?? null);
                   }}
-                  className="group text-left rounded-xl overflow-hidden border border-white/[0.06] bg-black/40 hover:border-gvc-gold/40 transition-all"
+                  className="group text-left rounded-xl overflow-hidden border border-white/[0.08] bg-black/40 hover:border-gvc-gold/40 transition-all"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -1528,7 +1528,7 @@ node scripts/test-x402-agent.mjs \\
           <p className="text-[11px] font-body uppercase tracking-wider text-white/30">
             Endpoint
           </p>
-          <div className="rounded-lg bg-black/50 border border-white/[0.06] px-3 py-2 flex-1">
+          <div className="rounded-lg bg-black/50 border border-white/[0.08] px-3 py-2 flex-1">
             <code className="font-mono text-[12px] text-gvc-gold break-all leading-tight block">
               POST /api/vibeify/x402
             </code>
