@@ -1,13 +1,68 @@
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { describeSubject } from "./vibeify-describe";
 import { renderWithFlux } from "./vibeify-flux";
 import {
   loadGvcReferences,
   loadSceneBackgrounds,
+  type GvcReference,
 } from "./vibeify-references";
 import { pickVibeParams } from "./vibeify-agent";
 
 export type VibeifySize = "1024x1024" | "1024x1536" | "1536x1024";
+
+/**
+ * What the source image actually is. Drives whether we run the describer
+ * (photos) or use the source itself as a reference image (GVC NFTs).
+ *
+ * - "photo"     → user upload. Describer extracts identity markers
+ *                 (hair / clothing / accessories) as text; canonical
+ *                 GVC face refs anchor the noseless smile aesthetic.
+ *                 Source pixels never reach Flux.
+ * - "gvc-token" → user loaded a GVC NFT via the token-ID picker. The
+ *                 source IS a canonical Vibetown character — we skip the
+ *                 describer (no human-skin-tone translation loss) and
+ *                 inject the NFT as an extra reference image. Face refs
+ *                 are dropped (the source already defines the face).
+ */
+export type SourceKind = "photo" | "gvc-token";
+
+/**
+ * Downscale the source image if it's larger than ~1024px on its longest
+ * edge. We don't need this for Flux's MP budget (per-ref cost is
+ * effectively fixed regardless of pixel dimensions — see the FACE_PRIORITY
+ * note in vibeify-references.ts), but we DO want to keep transfer time
+ * to Flux + base64 encode size reasonable. A 1024px JPEG is plenty for
+ * the model to read identity from.
+ */
+async function downscaleForReference(
+  buffer: Buffer,
+  mime: string
+): Promise<{ buffer: Buffer; mime: string }> {
+  try {
+    const image = sharp(buffer);
+    const meta = await image.metadata();
+    const MAX = 1024;
+    if (
+      meta.width &&
+      meta.height &&
+      Math.max(meta.width, meta.height) <= MAX
+    ) {
+      return { buffer, mime };
+    }
+    const resized = await image
+      .resize(MAX, MAX, { fit: "inside", withoutEnlargement: true })
+      .toBuffer();
+    // Resize() preserves format by default — keep original mime.
+    return { buffer: resized, mime };
+  } catch (e) {
+    // If sharp blows up on a weird input format, fall back to the raw bytes.
+    console.warn(
+      `[vibeify] source downscale failed (using raw bytes): ${(e as Error).message}`
+    );
+    return { buffer, mime };
+  }
+}
 
 /**
  * v2.2 prompt — "vision-described, multi-reference render".
@@ -26,6 +81,79 @@ export type VibeifySize = "1024x1024" | "1024x1536" | "1536x1024";
  *
  * v1 and v2 prompts are preserved in lib/prompts-backup.ts.
  */
+/**
+ * Build the system prompt for the GVC-token-source path.
+ *
+ * Different shape from the photo path: there's no describer text to inject
+ * (the source NFT IS the identity reference), and we explicitly tell Flux
+ * the SOURCE-CHARACTER reference is the ground truth for body color, type,
+ * hair, accessories — preserve those, apply only the scene/action/mood
+ * instructions on top.
+ *
+ * Face refs are omitted (the source already shows the canonical noseless
+ * GVC face), so the face-reference section of the prompt doesn't appear.
+ */
+export function buildVibetownPromptForGvcSource(
+  sceneBgFilenames: string[],
+  scene: string,
+  action: string,
+  mood: string
+) {
+  const sceneText =
+    scene.trim() ||
+    "a calm, premium Vibetown setting that complements the uploaded subject";
+  const actionText = action.trim();
+  const moodText = mood.trim();
+
+  return `You are rendering a Good Vibes Club / Vibetown vinyl figurine into a new scene, pose, and mood. The source character is supplied directly as a reference image — preserve its identity exactly while restyling the scene, action, and lighting per the instructions below.
+
+REFERENCE IMAGES
+1. GVC-STYLE-REFERENCE.png — body proportions template (shown as a T-pose from three angles purely for measurement; the T-pose stance is NOT a pose to copy — the character moves per SUBJECT ACTION).
+2. SOURCE-CHARACTER reference — the canonical GVC Citizen of Vibetown to render. This is the GROUND TRUTH for the subject's identity:
+   - body / skin color (preserve EXACTLY — including saturated stylized colors like yellow, mint, pink, blue, gold; do NOT translate these to human skin tones)
+   - character type (Default, Robot, Alien, etc.)
+   - hair color, length, style
+   - eye style (open dots, closed curves, laser, X-eyes, etc. — match the source)
+   - all clothing and accessories (jacket, hat, glasses, jewelry, items in hand)
+   - any patches, prints, logos, badges, or graphics visible on clothing
+   The source character may be shown in a neutral pose; the rendered output places that same character into the new scene + pose + mood described below.${
+    sceneBgFilenames.length > 0
+      ? `
+3. Scene reference image(s) — canonical Vibetown environment for this render:
+${sceneBgFilenames.map((n) => `  - ${n}`).join("\n")}
+   Match the scene reference(s) for color palette, architecture, materials, props, lighting mood, time of day, and overall Vibetown aesthetic. Insert the source character naturally into this environment. You may adjust framing/camera distance to fit the action. Do NOT copy any characters that appear in the scene reference itself — the only character in the output is the SOURCE-CHARACTER above.`
+      : ""
+  }
+
+WHAT TO PRESERVE FROM THE SOURCE
+- Exact body / skin color, including non-human colors (yellow, mint, blue, etc.). Never translate to human Mediterranean tones.
+- Character type (Default, Robot, Alien, etc.) and any species-specific features.
+- Hair color, length, style — exactly as shown.
+- Eye style — open dots / closed curves / laser / X-eyes etc. as shown.
+- Mouth: ONE simple small Vibetown-style curved line if visible on the source; if the source has no mouth (e.g. bearded), keep no mouth.
+- All clothing pieces, in the same colors and configuration as the source.
+- All visible accessories (hat, glasses, jewelry, items in hands).
+- Any patches, pins, badges, prints, embroidery, or graphics on clothing — keep them exactly.
+
+WHAT TO CHANGE
+- Pose / body language → per SUBJECT ACTION below.
+- Environment / scene → per SCENE below and the scene reference image(s).
+- Lighting, color palette, atmosphere → per STYLE / Mood below.
+
+DO NOT ADD
+- Brand text (e.g. literal "GVC" letters) on clothing unless those exact letters are visibly present on the source character's clothing.
+- Anatomical realism to the face (no nose, no eyebrows, no realistic lips).
+- Extra characters not present in the source.
+
+SCENE
+${sceneText}
+
+${actionText ? `SUBJECT ACTION\n${actionText}\n\n` : ""}STYLE
+Physically grounded miniature diorama — believable materials, weight, and depth. Pastel environment palette (mint, peach, pink, cyan) with localized saturation in signage and props. High-angle or slight isometric macro photography feel, strong tilt-shift depth of field (subject sharp, edges blurred), subtle chromatic aberration, fine cinematic film grain, soft directional sunlight with warm/cool balance. ${
+    moodText ? `Mood: ${moodText}.` : "Calm but rich — cinematic and alive."
+  }`;
+}
+
 export function buildVibetownPrompt(
   description: string,
   faceFilenames: string[],
@@ -172,6 +300,13 @@ export async function generateVibetown(opts: {
   size: VibeifySize;
   /** Optional scene background reference filenames (in public/scenes/). */
   sceneBgFilenames?: string[];
+  /**
+   * What the source image is. Defaults to "photo" — describer runs, source
+   * pixels never reach Flux. When "gvc-token", describer is SKIPPED, the
+   * source is injected as a Flux reference image, and face refs are dropped
+   * (the source already defines the canonical GVC face).
+   */
+  sourceKind?: SourceKind;
   /** Extra fields to merge into the success response (e.g. testMode, paymentRail). */
   extra?: Record<string, unknown>;
 }): Promise<NextResponse> {
@@ -190,26 +325,52 @@ export async function generateVibetown(opts: {
     );
   }
 
-  // ── Step 1: describe the source in words (gpt-4o-mini vision) ──
-  // The source photo pixels never reach the image generator — only this text does.
+  const sourceKind: SourceKind = opts.sourceKind ?? "photo";
   console.log(
-    `[vibeify] start size=${opts.size} mime=${opts.mime} bufferBytes=${opts.buffer.length}`
+    `[vibeify] start sourceKind=${sourceKind} size=${opts.size} mime=${opts.mime} bufferBytes=${opts.buffer.length}`
   );
+
+  // ── Step 1: identity capture ──
+  // photo:      gpt-4o-mini vision describer; source pixels never reach Flux
+  // gvc-token:  skip describer; source IS the identity; injected as ref below
   let description: string;
-  try {
-    description = await describeSubject(opts.buffer, opts.mime, openaiKey);
-    console.log(`[vibeify] describer ok (${description.length} chars)`);
-  } catch (e) {
-    const msg = (e as Error).message;
-    console.error(`[vibeify] describer failed:`, msg);
-    return NextResponse.json(
-      { error: `Could not describe the uploaded image: ${msg}` },
-      { status: 502 }
+  let extraReference: GvcReference | undefined;
+
+  if (sourceKind === "gvc-token") {
+    description =
+      "(GVC NFT source — see the SOURCE-CHARACTER reference image; no text description.)";
+    // Downscale + repackage the NFT image as a Flux reference. We don't need
+    // this for MP budget (ref count is what matters, not pixel size — and we
+    // dropped 4 face refs to make room for the source), but a 1024px JPEG
+    // keeps base64 transfer size + encode time reasonable.
+    const downscaled = await downscaleForReference(opts.buffer, opts.mime);
+    extraReference = {
+      filename: "SOURCE-CHARACTER.png",
+      buffer: downscaled.buffer,
+      mimeType: downscaled.mime,
+    };
+    console.log(
+      `[vibeify] gvc-token path — describer skipped; source attached as ref (${extraReference.buffer.length} bytes)`
     );
+  } else {
+    try {
+      description = await describeSubject(opts.buffer, opts.mime, openaiKey);
+      console.log(`[vibeify] describer ok (${description.length} chars)`);
+    } catch (e) {
+      const msg = (e as Error).message;
+      console.error(`[vibeify] describer failed:`, msg);
+      return NextResponse.json(
+        { error: `Could not describe the uploaded image: ${msg}` },
+        { status: 502 }
+      );
+    }
   }
 
-  // ── Step 2: render with FLUX.2 [PRO] + multi-reference set ──
-  const refs = await loadGvcReferences();
+  // ── Step 2: load GVC references ──
+  // GVC-token path drops the face refs (the source defines the face).
+  const refs = await loadGvcReferences({
+    includeFaces: sourceKind !== "gvc-token",
+  });
   if (refs.refs.length === 0) {
     return NextResponse.json(
       {
@@ -223,19 +384,36 @@ export async function generateVibetown(opts: {
   // Optional scene background reference(s) — appended after the GVC refs.
   const sceneBgs = await loadSceneBackgrounds(opts.sceneBgFilenames ?? []);
   const sceneBgFilenames = sceneBgs.map((r) => r.filename);
-  const allReferences = [...refs.refs, ...sceneBgs];
 
-  const prompt = buildVibetownPrompt(
-    description,
-    refs.faceFilenames,
-    sceneBgFilenames,
-    opts.scene,
-    opts.action,
-    opts.mood
-  );
+  // Reference ordering matters — Flux input_image_1 is the strongest anchor.
+  // Photo path:      body T-pose, face refs, scene bgs
+  // GVC-token path:  body T-pose, SOURCE-CHARACTER, scene bgs
+  const allReferences = [
+    ...refs.refs,
+    ...(extraReference ? [extraReference] : []),
+    ...sceneBgs,
+  ];
 
-  // Flux supports up to 9 input images. If we'd exceed that, drop face refs
-  // first (least critical for a multi-character scene) before scene bgs.
+  const prompt =
+    sourceKind === "gvc-token"
+      ? buildVibetownPromptForGvcSource(
+          sceneBgFilenames,
+          opts.scene,
+          opts.action,
+          opts.mood
+        )
+      : buildVibetownPrompt(
+          description,
+          refs.faceFilenames,
+          sceneBgFilenames,
+          opts.scene,
+          opts.action,
+          opts.mood
+        );
+
+  // Flux supports up to 9 input images. Trim if we somehow exceeded that.
+  // Photo path     budget: body (1) + 4 faces + 2 scenes = 7 → fine.
+  // GVC-token path budget: body (1) + 1 source + 2 scenes = 4 → ample room.
   const MAX = 9;
   const trimmed = allReferences.slice(0, MAX);
 
@@ -251,6 +429,7 @@ export async function generateVibetown(opts: {
       prompt,
       description,
       provider: "flux-2-pro",
+      sourceKind,
       ...(opts.extra ?? {}),
     });
   } catch (e) {
@@ -277,6 +456,16 @@ export function readVibeifyFields(form: FormData) {
     size: ((form.get("size") as string) || "1024x1024") as VibeifySize,
     sceneBgFilenames,
   };
+}
+
+/**
+ * Read the explicit sourceKind form field. Falls back to "photo" so
+ * existing callers (and any agent caller that doesn't set the field)
+ * keep the describer-driven path unchanged.
+ */
+export function readSourceKind(form: FormData): SourceKind {
+  const raw = (form.get("sourceKind") as string | null)?.trim().toLowerCase();
+  return raw === "gvc-token" ? "gvc-token" : "photo";
 }
 
 export type ResolvedVibeifyParams = {

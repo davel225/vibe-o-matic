@@ -106,6 +106,18 @@ export default function Home() {
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [sourceLabel, setSourceLabel] = useState<string>("");
   const [sourceIsRemote, setSourceIsRemote] = useState<boolean>(false);
+  /**
+   * What the image actually is, semantically. Drives the server-side
+   * pipeline branch:
+   *  - "photo"     → user upload; describer extracts identity, source pixels
+   *                  never reach Flux
+   *  - "gvc-token" → user loaded a GVC NFT via the token-ID picker; the
+   *                  source IS a canonical Vibetown character — server
+   *                  skips the describer and injects the NFT as a Flux
+   *                  reference image (preserves body color, type, hair
+   *                  exactly). See lib/vibeify-render.ts → generateVibetown.
+   */
+  const [sourceKind, setSourceKind] = useState<"photo" | "gvc-token">("photo");
 
   // ── Prompt inputs ────────────────────────────────────────
   const [scene, setScene] = useState<string>(SCENE_PRESETS[0].scene);
@@ -243,10 +255,16 @@ export default function Home() {
   }, [account]);
 
   // ── Image source handlers ────────────────────────────────
-  function setSource(url: string, label: string, remote: boolean) {
+  function setSource(
+    url: string,
+    label: string,
+    remote: boolean,
+    kind: "photo" | "gvc-token" = "photo"
+  ) {
     setSourceUrl(url);
     setSourceLabel(label);
     setSourceIsRemote(remote);
+    setSourceKind(kind);
     setResult(null);
     setShowBefore(false);
   }
@@ -287,6 +305,7 @@ export default function Home() {
     setSourceUrl(null);
     setSourceLabel("");
     setSourceIsRemote(false);
+    setSourceKind("photo");
     setResult(null);
     setShowBefore(false);
     setTokenInput("");
@@ -310,7 +329,12 @@ export default function Home() {
       const meta = await fetch("/gvc-metadata.json").then((r) => r.json());
       const token = meta[String(id)];
       if (!token?.image) throw new Error("not found");
-      setSource(ipfsToHttp(token.image), token.name || `GVC #${id}`, true);
+      setSource(
+        ipfsToHttp(token.image),
+        token.name || `GVC #${id}`,
+        true,
+        "gvc-token"
+      );
       toast.success(`Loaded ${token.name || `GVC #${id}`}`);
     } catch {
       toast.error("Could not load that token");
@@ -411,6 +435,7 @@ export default function Home() {
     fd.set("action", action);
     fd.set("mood", mood);
     fd.set("size", size);
+    fd.set("sourceKind", sourceKind);
     if (sceneBgImages.length > 0) {
       fd.set("sceneBgImages", sceneBgImages.join(","));
     }

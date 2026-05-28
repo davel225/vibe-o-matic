@@ -23,6 +23,7 @@ import {
 import {
   generateVibetown,
   prepareImage,
+  readSourceKind,
   resolveVibeifyParams,
 } from "@/lib/vibeify-render";
 import { facilitator } from "@coinbase/x402";
@@ -189,6 +190,7 @@ export async function POST(req: NextRequest) {
     mood: resolved.mood,
     size: resolved.size,
     sceneBgFilenames: resolved.sceneBgFilenames,
+    sourceKind: readSourceKind(form),
     extra: {
       paymentRail: "usdc",
       agentMode: form.get("agentMode") === "1",

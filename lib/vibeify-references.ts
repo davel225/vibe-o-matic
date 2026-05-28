@@ -113,7 +113,23 @@ export async function loadSceneBackgrounds(
   return out;
 }
 
-export async function loadGvcReferences(): Promise<LoadedReferences> {
+export type LoadOptions = {
+  /**
+   * Include the curated FACE_PRIORITY subset of face refs. Default true.
+   *
+   * Set to false when the source image is itself a canonical GVC character
+   * (GVC NFT token) — in that case the source image IS the face/identity
+   * reference, and the curated face refs are redundant (or worse, can
+   * fight the source character's actual traits). See the gvc-token branch
+   * in lib/vibeify-render.ts for the call site.
+   */
+  includeFaces?: boolean;
+};
+
+export async function loadGvcReferences(
+  opts: LoadOptions = {}
+): Promise<LoadedReferences> {
+  const { includeFaces = true } = opts;
   const refs: GvcReference[] = [];
   const filenames: string[] = [];
   const faceFilenames: string[] = [];
@@ -134,22 +150,25 @@ export async function loadGvcReferences(): Promise<LoadedReferences> {
   // Face references — only the curated FACE_PRIORITY subset, in priority order.
   // Skips entries that don't exist on disk so the loader stays robust if a
   // file is renamed or removed. See FACE_PRIORITY comment for budget rationale.
-  try {
-    const entries = new Set(await readdir(FACES_DIR));
-    for (const name of FACE_PRIORITY) {
-      if (!entries.has(name)) continue;
-      if (!IMAGE_EXTS.has(extname(name).toLowerCase())) continue;
-      const buffer = await readFile(join(FACES_DIR, name));
-      refs.push({
-        filename: name,
-        buffer,
-        mimeType: mimeFromExt(extname(name)),
-      });
-      filenames.push(name);
-      faceFilenames.push(name);
+  // Skipped entirely when `includeFaces=false` (GVC-token source path).
+  if (includeFaces) {
+    try {
+      const entries = new Set(await readdir(FACES_DIR));
+      for (const name of FACE_PRIORITY) {
+        if (!entries.has(name)) continue;
+        if (!IMAGE_EXTS.has(extname(name).toLowerCase())) continue;
+        const buffer = await readFile(join(FACES_DIR, name));
+        refs.push({
+          filename: name,
+          buffer,
+          mimeType: mimeFromExt(extname(name)),
+        });
+        filenames.push(name);
+        faceFilenames.push(name);
+      }
+    } catch {
+      // Face dir missing or unreadable — body ref alone still works.
     }
-  } catch {
-    // Face dir missing or unreadable — body ref alone still works.
   }
 
   return { refs, filenames, faceFilenames };
