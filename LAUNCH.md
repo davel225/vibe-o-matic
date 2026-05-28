@@ -220,7 +220,6 @@ The mainnet flip shipped in `a513329`. The verification at that time:
 ## 📌 Known follow-ups (not blockers)
 
 - **VIBESTR allowlist add** — see "Pending" section above. The one-line code re-enable will land the moment GVC confirms.
-- **`lib/wallet.ts` chain-add fallback uses Sepolia params for mainnet** — when MetaMask doesn't have Base added and we trigger `wallet_addEthereumChain`, the params block is labeled `"Base Sepolia"` with `sepolia.base.org` RPC even though we're on chain id 8453 (mainnet). New users may see a misconfigured chain. One-line fix: rewrite the params for mainnet. Existing users (already on Base) are unaffected.
 - **In-memory tx-hash replay protection** — `USED_TX_HASHES` Set in `app/api/vibeify/route.ts` resets on every Vercel cold start, meaning a redeploy can re-unlock previously-spent VIBESTR tx hashes. Out-of-scope while VIBESTR is gated on the allowlist anyway; revisit when the rail goes live (move to KV or sign nonces).
 - **Treasury address duplicated across the codebase** — `lib/payment-config.ts` (×2), `LAUNCH.md` (×many), `WIRING.md`. If GVC rotates the address, every reference needs updating. Worth a small refactor that exports a single `TREASURY_ADDRESS` re-used everywhere.
 - **Next.js security patch** — `next@14.2.15` has an advisory; safe to bump to the latest 14.x patch release any time post-hackathon.

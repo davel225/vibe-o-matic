@@ -96,15 +96,20 @@ async function ensureChain(wantChainId: number, label: string) {
     // 4902 = chain not added to wallet
     if ((e as { code?: number })?.code === 4902 && wantChainId === USDC_CHAIN_ID) {
       try {
+        // Base mainnet params. The chainId comes from USDC_CHAIN_ID (8453),
+        // which is the production constant — DO NOT hardcode the hex here.
+        // If lib/payment-config.ts is ever rolled back to base-sepolia (84532)
+        // for a testnet recovery, this fallback should also revert to
+        // chainName "Base Sepolia" + sepolia.base.org RPC + sepolia.basescan.org.
         await provider.request({
           method: "wallet_addEthereumChain",
           params: [
             {
               chainId: `0x${USDC_CHAIN_ID.toString(16)}`,
-              chainName: "Base Sepolia",
-              nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
-              rpcUrls: ["https://sepolia.base.org"],
-              blockExplorerUrls: ["https://sepolia.basescan.org"],
+              chainName: "Base",
+              nativeCurrency: { name: "Ethereum", symbol: "ETH", decimals: 18 },
+              rpcUrls: ["https://mainnet.base.org"],
+              blockExplorerUrls: ["https://basescan.org"],
             },
           ],
         });
