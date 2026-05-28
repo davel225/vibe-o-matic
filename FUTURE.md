@@ -86,6 +86,49 @@ The hackathon build ships humans a working rail (USDC) and demonstrates the VIBE
 
 ---
 
+## 🔗 ERC-8257 tool registry listing
+
+[**ERC-8257**](https://www.8257.ai/) ([ProjectOpenSea](https://github.com/ProjectOpenSea)) is OpenSea's onchain registry for AI agent tools — a discovery layer specifically designed to complement x402. Their own positioning calls it *"`403` to x402's `402`."* Same contract on Ethereum + Base mainnet: `0x265BB2DBFC0A8165C9A1941Eb1372F349baD2cf1`.
+
+vibe-o-matic is textbook ERC-8257 material: an already-payable HTTP endpoint targeting autonomous AI agents on Base, with predictable per-call economics. Listing it in the registry makes vibe-o-matic discoverable to every agent that already speaks ERC-8257 — the same agent population x402 was designed for.
+
+### Integration sketch (GVC-led, post-hackathon)
+
+Whoever inherits the project would need to:
+
+1. **Author the tool manifest.** A JSON descriptor served at `/.well-known/ai-tool/vibeify.json` per the ERC-8257 spec. Describes the endpoint, the access predicate, and the agent-facing schema.
+2. **Deploy an `IAccessPredicate` contract on Base.** Three functions:
+   - `hasAccess(address agent) → bool`
+   - `getRequirements() → bytes` (declares the access requirements machine-readably)
+   - `name() → string`
+
+   The predicate's logic is custom — for vibe-o-matic, the simplest path is a permissive `hasAccess() → true` that defers gating to the existing HTTP-layer x402 verification. A more sophisticated predicate could verify an on-chain x402 payment proof directly, eliminating the redundant HTTP step.
+3. **Register the tool** via the OpenSea SDK: `npx @opensea/tool-sdk register --metadata <manifest-url> --network base`. One-time tx; costs Base mainnet gas.
+4. **Add server-side SIWE header acceptance.** ERC-8257 callers send a SIWE (Sign-In-With-Ethereum) `Authorization` header. The existing `/api/vibeify/x402` route would learn to accept either the current `X-PAYMENT` (x402) header OR a SIWE header (ERC-8257), running the same render pipeline in both cases.
+
+Estimated effort: **~2-3 working days** for a developer comfortable with Solidity + TypeScript + Base mainnet.
+
+### Why this is a strong follow-up
+
+The narrative connection is unusually clean:
+
+- vibe-o-matic already ships an **OpenSea brand cameo** in the Neon Street scene
+- vibe-o-matic already runs **on Base** with x402 USDC settlement
+- vibe-o-matic is **already callable by autonomous AI agents**
+
+Listing in ERC-8257 closes the loop: same parent ecosystem (OpenSea), same chain (Base), same audience (autonomous AI agents). The project becomes a real example of "x402-payable + ERC-8257-discoverable" — the canonical pattern these two protocols were designed to enable together.
+
+### Due diligence checklist (pre-integration)
+
+- [ ] Confirm ERC-8257's manifest schema (full JSON shape) from [the spec page](https://www.8257.ai/spec)
+- [ ] Decide between the simple-permissive predicate (defer to HTTP-layer x402) vs an x402-aware on-chain predicate (verify payment receipts before the HTTP call)
+- [ ] Confirm the SIWE header format ERC-8257 expects, and the latency budget for the per-request predicate re-check (currently estimated at ~100-200ms via standard Base RPC)
+- [ ] Verify there are no registry-side fees on registration or per-call (none documented today)
+- [ ] Decide whether to keep `/api/vibeify/x402` dual-protocol (both headers accepted) or fork a second route at `/api/vibeify/8257` for cleaner separation
+- [ ] Choose a canonical tool name and reserve any related identifiers before registration
+
+---
+
 ## 📋 Other future additions
 
 ### Prompt-machine integration

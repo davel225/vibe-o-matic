@@ -68,6 +68,8 @@ The architecture is deliberate, not accidental:
 ### 🎯 OpenSea brand integration
 The Neon Street scene includes a custom-built neon OpenSea logo as one of the storefront signs, using OpenSea's exact brand hex codes from their style guide (Sea Blue #2081E2, Marina Blue #15B2E5, Aqua #2BCDE4, Fog #E5E8EB). Every render at that scene puts the OpenSea mark in the background — a small visual nod to a community-defining marketplace.
 
+The connection runs deeper than visual cameo, too: vibe-o-matic is textbook material for **[ERC-8257](https://www.8257.ai/)**, OpenSea's onchain agent tool registry built on Base — designed to be *"`403` to x402's `402`."* Same parent ecosystem, same chain, same agent audience. Listing the tool there is the natural next discovery channel; concrete sketch in [`FUTURE.md`](./FUTURE.md#-erc-8257-tool-registry-listing).
+
 ---
 
 ## How each surface works
