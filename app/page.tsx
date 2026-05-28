@@ -1241,15 +1241,17 @@ export default function Home() {
           <AgentEndpointCard />
         </motion.section>
 
-        {/* ── Stats row ─────────────────────────────────────────────── */}
+        {/* ── Stats — single full-width card matching Agent API's width ─ */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="grid md:grid-cols-2 gap-4 mt-4 items-stretch"
+          className="mt-4"
         >
-          <Stat label="Total renders" value={totalGens} />
-          <Stat label="Last render" valueText={lastGenAgo} />
+          <div className="rounded-2xl bg-gvc-dark border border-white/[0.08] p-5 grid grid-cols-2 gap-6">
+            <Stat inline label="Total renders" value={totalGens} />
+            <Stat inline label="Last render" valueText={lastGenAgo} />
+          </div>
         </motion.section>
 
         {/* GVC stats kept as a small footer line (not the headline) */}
@@ -1560,10 +1562,15 @@ function Stat({
   label,
   value,
   valueText,
+  inline = false,
 }: {
   label: string;
   value?: number;
   valueText?: string;
+  /** When true, render WITHOUT the rounded-card wrapper — useful when
+   *  the parent already provides a card and just needs the label+value
+   *  block inline (e.g. multiple stats in one shared card). */
+  inline?: boolean;
 }) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
@@ -1582,14 +1589,24 @@ function Stat({
     return () => clearInterval(t);
   }, [value]);
 
-  return (
-    <div className="rounded-2xl bg-gvc-dark border border-white/[0.08] p-5 flex flex-col justify-center">
+  const content = (
+    <>
       <p className="text-white/40 font-body text-[10px] uppercase tracking-wider mb-1">
         {label}
       </p>
       <p className="font-display text-3xl text-gvc-gold">
         {typeof value === "number" ? display.toLocaleString() : valueText ?? "—"}
       </p>
+    </>
+  );
+
+  if (inline) {
+    return <div className="flex flex-col justify-center">{content}</div>;
+  }
+
+  return (
+    <div className="rounded-2xl bg-gvc-dark border border-white/[0.08] p-5 flex flex-col justify-center">
+      {content}
     </div>
   );
 }
