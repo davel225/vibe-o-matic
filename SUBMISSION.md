@@ -38,13 +38,34 @@ The web UI is single-purpose: VIBESTR only, manual scene/action/mood selection, 
 ### Surface 2 — The x402 agent endpoint (the autonomous AI path)
 External AI agents hit `POST /api/vibeify/x402` with two body params: an image and a free-text intent. Our server-side picker reads the photo + intent and chooses scene/action/mood/size from the curated catalog. The render proceeds, the agent's picks come back in the response (with reasoning), and a $0.69 USDC payment settles on Base — all in one HTTP round-trip with the EIP-3009 signature in the `X-PAYMENT` header.
 
-A Node script (`scripts/test-x402-agent.mjs`) demonstrates the full flow without a browser:
+#### Why it's actually agent-friendly (not just "an API")
 
-```bash
-AGENT_PRIVATE_KEY=0x... node scripts/test-x402-agent.mjs ./agent-photo.jpg "rockstars at an after-party"
+1. **Self-describing endpoint.** `GET /api/vibeify/x402` is a discovery call: any agent that already speaks x402 receives the price, treasury address, network, and facilitator URL in one curl. No SDK, no docs lookup, no vibe-o-matic-specific code.
+2. **Caller doesn't need to learn our catalog.** Send `agentMode=1` + an optional one-line intent. Our server-side gpt-4o-mini picker resolves the intent into one of **1,008 valid combinations** (6 scenes × 7 actions × 8 moods × 3 ratios). Free text in, render out.
+3. **Pay in the protocol's currency, not ours.** USDC via EIP-3009 — no API key, no signup, no rate-limit dashboard, no Stripe account. The agent's wallet IS the credential.
+4. **Transparent agent picks.** Response includes `agentPicks` with the chosen ids AND the picker's reasoning, so callers can build feedback loops on what works.
+5. **Atomic billing.** The server runs `verify → render → settle` in that order — if rendering fails, settlement never fires, so a caller is never half-charged. Documented at the protocol level in [`X402.md`](./X402.md), enforced at the route level.
+
+#### Integration surface in one screenshot of code
+
+```ts
+import { wrapFetchWithPayment } from "x402-fetch";
+const fetchWithPay = wrapFetchWithPayment(fetch, walletClient);
+
+const form = new FormData();
+form.set("image", imageBlob);
+form.set("agentMode", "1");
+form.set("intent", "noir detective vibe at midnight");
+
+const res = await fetchWithPay("/api/vibeify/x402", { method: "POST", body: form });
+const { image, agentPicks } = await res.json();
+// image is data:image/png;base64,...
+// agentPicks = { sceneId, actionId, moodId, size, reasoning }
 ```
 
-The script signs the EIP-3009 USDC authorization, hits our endpoint, and saves the rendered PNG to disk. **This is the future of how AI agents pay for services on the web** — no API key, no signup, no human in the loop.
+That's the whole integration. Any language that can sign EIP-712 typed data and POST a multipart form can call this — the repo also ships a self-contained Node CLI (`scripts/test-x402-agent.mjs --help`) as a reference implementation, but it's an example, not the contract. The contract is the HTTP shape in [`X402.md`](./X402.md).
+
+**This is the future of how AI agents pay for services on the web** — no API key, no signup, no human in the loop.
 
 ---
 
