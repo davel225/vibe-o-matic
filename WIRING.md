@@ -4,8 +4,8 @@ This doc is the **single source of truth for everything the GVC team needs to
 own, rotate, or verify** to take vibe-o-matic into production custody.
 
 > **Audience:** A GVC technical lead inheriting ops. Assumed comfortable with
-> Vercel, GitHub, MetaMask, and a terminal. Not assumed to know x402, Coinbase
-> CDP, or the project's internal layout.
+> Vercel, GitHub, a browser wallet, and a terminal. Not assumed to know x402,
+> Coinbase CDP, or the project's internal layout.
 
 If you read nothing else, read the [**5-minute take-over summary**](#-5-minute-take-over-summary) and the [**handoff checklist**](#-handoff-checklist).
 
@@ -66,7 +66,7 @@ Three things must change hands. Everything else either follows automatically or 
 2. **The Vercel project** (currently in `economist5`'s personal Vercel account) → transfer to GVC's Vercel team.
 3. **The five env vars** in Vercel Production → rotate to GVC-owned API keys (OpenAI, BFL, CDP) + set your own bypass password.
 
-The **treasury wallet** (`0xc93c375b…cfce22`) we believe is already GVC-controlled — please verify before accepting volume. The **VIBESTR allowlist add** is something only the contract owner (GVC) can do — no developer action required.
+The **treasury wallet** (`0xc93c375b…cfce22`) must be verified GVC-controlled before accepting volume — see step 4 of the handoff checklist. The **VIBESTR allowlist add** is something only the VIBESTR contract owner can perform — no developer action required from the project side.
 
 After those swaps, the production deploy is fully yours: every dollar of every render lands in your treasury, every API call is billed to your accounts, every secret lives in your env.
 
