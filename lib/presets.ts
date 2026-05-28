@@ -101,7 +101,7 @@ export const ACTION_PRESETS: ActionPreset[] = [
   {
     id: "group-selfie",
     emoji: "🤳",
-    label: "Group selfie",
+    label: "Selfie",
     prompt:
       "leaning in for a group selfie with one arm extended forward holding a phone",
   },

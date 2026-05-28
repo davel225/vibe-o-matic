@@ -1085,14 +1085,14 @@ export default function Home() {
               <p className="text-xs font-body uppercase tracking-wider text-white/40 mb-1.5">
                 Action
               </p>
-              <div className="flex flex-wrap gap-1.5 mb-2">
+              <div className="flex flex-wrap gap-1 mb-2">
                 {ACTION_PRESETS.map((p) => {
                   const active = action === p.prompt;
                   return (
                     <button
                       key={p.label}
                       onClick={() => setAction(active ? "" : p.prompt)}
-                      className={`text-sm font-body px-2.5 py-1 rounded-full border transition-all ${
+                      className={`text-sm font-body px-2 py-1 rounded-full border transition-all ${
                         active
                           ? "bg-gvc-gold/15 border-gvc-gold/50 text-gvc-gold"
                           : "bg-black/30 border-white/[0.08] text-white/60 hover:border-white/20"
@@ -1114,14 +1114,14 @@ export default function Home() {
               <p className="text-xs font-body uppercase tracking-wider text-white/40 mb-1.5">
                 Mood
               </p>
-              <div className="flex flex-wrap gap-1.5 mb-2">
+              <div className="flex flex-wrap gap-1 mb-2">
                 {MOOD_PRESETS.map((p) => {
                   const active = mood === p.prompt;
                   return (
                     <button
                       key={p.label}
                       onClick={() => setMood(active ? "" : p.prompt)}
-                      className={`text-sm font-body px-2.5 py-1 rounded-full border transition-all ${
+                      className={`text-sm font-body px-2 py-1 rounded-full border transition-all ${
                         active
                           ? "bg-gvc-gold/15 border-gvc-gold/50 text-gvc-gold"
                           : "bg-black/30 border-white/[0.08] text-white/60 hover:border-white/20"
