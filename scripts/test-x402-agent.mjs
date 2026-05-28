@@ -11,10 +11,16 @@
 // Options:
 //   --image, -i <path>      Photo to render. Default: searches for
 //                           ./agent-photo.{jpg,jpeg,png,webp} in cwd.
-//   --key-file, -k <path>   Plaintext file containing the private key.
-//                           Use to source from your own credentials store
-//                           (e.g. `--key-file ~/.config/vibe-o-matic/key`).
-//                           Falls back to AGENT_PRIVATE_KEY env var.
+//   --key-file, -k <path>   Plaintext file holding the private key as
+//                           hex (with or without 0x prefix). Simplest
+//                           form, falls back to AGENT_PRIVATE_KEY env.
+//   --credential-path <p>   Read the key from a structured credentials
+//                           file (JSON). Pairs with the two flags below.
+//   --credential-format <f> Format of --credential-path. Currently only
+//                           "json" is supported; that's the default.
+//   --credential-key <k>    Field in the JSON to read. Defaults to
+//                           "privateKey". Pass a different name for
+//                           stores that use a different schema.
 //   --target, -t <url>      Override deployment URL.
 //                           Default: $TARGET or https://vibe-o-matic.vercel.app
 //   --no-balance-check      Skip the on-chain USDC balance preflight.
@@ -29,9 +35,17 @@
 //   AGENT_PRIVATE_KEY=abc...  node scripts/test-x402-agent.mjs "rockstars"
 //   node scripts/test-x402-agent.mjs -k ~/.x402-key -i ./me.jpg "chill day"
 //
-// Sourcing keys from custom stores (e.g. OpenClaw, dotfile JSON):
-//   AGENT_PRIVATE_KEY=$(jq -r .privateKey ~/.openclaw/credentials/base-default.json) \
-//     node scripts/test-x402-agent.mjs "your intent"
+// Reading from a JSON credentials store (no jq, no temp files):
+//   node scripts/test-x402-agent.mjs \
+//     --credential-path ~/.openclaw/credentials/base-default.json \
+//     --image ~/.openclaw/media/inbound/portrait.jpg \
+//     "rockstars at an after-party"
+//
+// If the JSON file uses a different field name for the key:
+//   node scripts/test-x402-agent.mjs \
+//     --credential-path ~/.your-store/creds.json \
+//     --credential-key key \
+//     "intent"
 
 import { existsSync, readFileSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
@@ -63,6 +77,9 @@ try {
     options: {
       image: { type: "string", short: "i" },
       "key-file": { type: "string", short: "k" },
+      "credential-path": { type: "string" },
+      "credential-format": { type: "string" },
+      "credential-key": { type: "string" },
       target: { type: "string", short: "t" },
       "no-balance-check": { type: "boolean" },
       help: { type: "boolean", short: "h" },
@@ -119,10 +136,49 @@ function resolveImagePath() {
 }
 const imagePath = resolveImagePath();
 
-// ── Resolve the private key: --key-file, then env, with normalization ──
+// ── Resolve the private key ──────────────────────────────────────────
+// Priority: --credential-path (structured) > --key-file (plaintext) >
+// AGENT_PRIVATE_KEY env. Each path normalizes (trim + optional 0x) and
+// validates the 64-hex-char shape before returning.
+function readFromCredentialFile() {
+  const p = resolve(parsed.values["credential-path"]);
+  if (!existsSync(p)) {
+    console.error(`✗ --credential-path not found: ${p}`);
+    process.exit(1);
+  }
+  const fmt = parsed.values["credential-format"] || "json";
+  const fieldKey = parsed.values["credential-key"] || "privateKey";
+  if (fmt !== "json") {
+    console.error(
+      `✗ --credential-format "${fmt}" not supported. Only "json" is currently supported.`
+    );
+    console.error(`  For plaintext key files, use --key-file <path> instead.`);
+    process.exit(1);
+  }
+  let payload;
+  try {
+    payload = JSON.parse(readFileSync(p, "utf8"));
+  } catch (e) {
+    console.error(`✗ Could not parse ${p} as JSON: ${e.message}`);
+    process.exit(1);
+  }
+  const value = payload?.[fieldKey];
+  if (typeof value !== "string") {
+    console.error(`✗ JSON field "${fieldKey}" missing or not a string in ${p}.`);
+    if (payload && typeof payload === "object") {
+      console.error(`  Available top-level fields: ${Object.keys(payload).join(", ")}`);
+    }
+    console.error(`  Override the field name with --credential-key <name>.`);
+    process.exit(1);
+  }
+  return value;
+}
+
 function resolvePrivateKey() {
   let raw;
-  if (parsed.values["key-file"]) {
+  if (parsed.values["credential-path"]) {
+    raw = readFromCredentialFile();
+  } else if (parsed.values["key-file"]) {
     const p = resolve(parsed.values["key-file"]);
     if (!existsSync(p)) {
       console.error(`✗ --key-file not found: ${p}`);
@@ -132,11 +188,13 @@ function resolvePrivateKey() {
   } else if (process.env.AGENT_PRIVATE_KEY) {
     raw = process.env.AGENT_PRIVATE_KEY;
   } else {
-    console.error("✗ No private key supplied.");
+    console.error("✗ No private key supplied. Three ways to provide one:");
     console.error();
-    console.error("  Provide via either:");
-    console.error("    • AGENT_PRIVATE_KEY=0x... in your env, or");
-    console.error("    • --key-file <path> pointing at a file with the key");
+    console.error("  • --credential-path <path>     read from a JSON credentials store");
+    console.error("                                 (e.g. ~/.openclaw/credentials/base-default.json)");
+    console.error("                                 + optional --credential-key <field> (default: privateKey)");
+    console.error("  • --key-file <path>            read from a plaintext file holding just the key");
+    console.error("  • AGENT_PRIVATE_KEY=0x... env  set in shell env (avoid for autonomous use)");
     console.error();
     console.error("  Key must control a Base mainnet wallet with ≥$0.69 USDC.");
     process.exit(1);

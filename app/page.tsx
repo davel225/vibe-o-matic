@@ -1422,19 +1422,19 @@ function AgentEndpointCard() {
 git clone https://github.com/davel225/vibe-o-matic
 cd vibe-o-matic && npm install
 
-# 2) See every available option
+# 2) See every available option (canonical reference)
 node scripts/test-x402-agent.mjs --help
 
-# 3) Recommended call shape — flags, not env vars or shell history:
-#    --key-file <path>: plaintext file holding your Base-mainnet private key
-#                       (raw key in env / argv leaks via shell history + ps).
-#                       Source from your credentials store, e.g.:
-#                       jq -r .privateKey ~/.your-store/creds.json > /tmp/k
+# 3) Recommended call shape — reads your key DIRECTLY from a JSON
+#    credentials store (no jq, no temp files, no shell history exposure).
+#    --credential-path: any JSON file with the key under a top-level field
+#                       (default field name: privateKey; override with
+#                       --credential-key <name>).
 #    --image <path>:    any portrait of a PERSON. Non-person subjects
 #                       (logos, animals, objects) produce unpredictable
-#                       renders — the describer is tuned for human subjects.
+#                       renders — the describer is tuned for humans.
 node scripts/test-x402-agent.mjs \\
-  --key-file ~/.your-creds-store/base-key \\
+  --credential-path ~/.your-creds-store/base-default.json \\
   --image ~/.your-media-store/inbound/portrait.jpg \\
   "your free-text intent"
 `;
