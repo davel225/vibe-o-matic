@@ -215,16 +215,20 @@ export default function Home() {
     };
   }, []);
 
-  // ── Refresh VIBESTR balance when account/chain changes ───
-  // VIBESTR is Ethereum-mainnet-only, so we gate the read on chainId == CHAIN_ID
-  // to avoid spamming the public RPC when MetaMask is on a different chain.
+  // ── Refresh VIBESTR balance when account changes ───
+  // VIBESTR lives on Ethereum mainnet, but we read it via a public mainnet RPC
+  // (lib/wallet.ts → publicClient) so the balance shows regardless of which
+  // chain MetaMask is currently selected. This matters because the default
+  // payment rail is USDC on Base — so MetaMask is usually NOT on Ethereum
+  // mainnet, and gating on chainId here would always show "…" for VIBESTR
+  // even when the user actually has tokens. Mirrors the USDC effect below.
   useEffect(() => {
-    if (!account || chainId !== CHAIN_ID) {
+    if (!account) {
       setBalance(null);
       return;
     }
     getVibestrBalance(account).then(setBalance).catch(() => setBalance(null));
-  }, [account, chainId]);
+  }, [account]);
 
   // ── Refresh USDC (Base mainnet) balance when account changes ───
   // Reads via a public Base RPC, so it works regardless of MetaMask's
