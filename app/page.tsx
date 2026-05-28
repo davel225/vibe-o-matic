@@ -606,19 +606,19 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between mb-10 flex-wrap gap-4"
         >
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-5">
             <Image
               src="/shaka.png"
               alt="GVC"
-              width={56}
-              height={56}
-              className="shaka-idle drop-shadow-[0_0_20px_rgba(255,224,72,0.4)]"
+              width={72}
+              height={72}
+              className="shaka-idle drop-shadow-[0_0_24px_rgba(255,224,72,0.45)]"
             />
             <div>
-              <h1 className="text-3xl sm:text-5xl font-display font-black text-shimmer leading-none tracking-tight">
+              <h1 className="text-4xl sm:text-6xl font-display font-black text-shimmer leading-none tracking-tight">
                 VIBE-O-MATIC
               </h1>
-              <p className="text-white/40 font-body text-sm sm:text-sm mt-1">
+              <p className="text-white/50 font-body text-sm sm:text-base mt-2">
                 Drop any image → get it back as a tiny, cinematic Vibetown scene.
               </p>
             </div>
