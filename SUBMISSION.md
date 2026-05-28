@@ -8,9 +8,9 @@
 
 ## The 30-second pitch
 
-vibe-o-matic turns any photo into a Good Vibes Club / Vibetown vinyl figurine render in ~40 seconds. We built two completely separate surfaces for two distinct audiences:
+vibe-o-matic turns any photo into a Good Vibes Club / Vibetown vinyl figurine render in ~40 seconds. We built two surfaces for two distinct audiences:
 
-- **GVC humans** open the web UI, connect MetaMask, pay 99 VIBESTR on Ethereum mainnet, click *Vibeify*. Every render goes 100% to the GVC treasury.
+- **GVC humans** open the web UI, connect MetaMask, and pick a rail: **$0.69 USDC on Base** (live today, default, one gasless signature) or **99 VIBESTR on Ethereum** (shown as `SOON` — flips on the moment the GVC team adds our treasury to VIBESTR's recipient allowlist). Either way, 100% to the GVC treasury.
 - **Autonomous AI agents** hit `POST /api/vibeify/x402` with an image + free-text intent. Our server-side agent picks the scene/action/mood/size, runs the render, and settles a $0.69 USDC payment on Base — all in one HTTP round-trip. No API key, no signup, no human in the loop.
 
 It's a working answer to two questions GVC cares about:
@@ -29,11 +29,12 @@ A judge or GVC holder can:
 3. Pick a scene from the curated catalog (Tropical Beach, Château de GODL, Neon Street with OpenSea signage, Rooftop Sunset, Lagoon Pier, Coastal Drive)
 4. Pick an action emoji (🤝 Friendship, 🎉 Celebrate, 🤳 Selfie, 🧘 Zen, 💃 Dance, 🏍️ Motorcycle, 🚁 Helicopter) and a mood (😊 Joyful, 😎 Chill, 🔥 Hyped, 🌙 Dreamy, 💪 Heroic, 🕶️ Noir, 🎈 Playful, 📼 Retro)
 5. Choose orientation (square / portrait / landscape)
-6. Click **Vibeify** → connect MetaMask → sign 99 VIBESTR payment → ~40s later, a Vibetown render of themselves
+6. Choose a payment rail — **$0.69 USDC** on Base (live default; one gasless EIP-3009 signature) or **99 VIBESTR** on Ethereum (shown as a `SOON` pill — see the allowlist note below)
+7. Click **Vibeify** → connect MetaMask → sign once → ~40s later, a Vibetown render of themselves
 
-VIBESTR enforces a private recipient allowlist inside `_transfer` — transfers to addresses on the list succeed; transfers to any other recipient revert with `InsufficientAllowance` regardless of sender balance. The vibe-o-matic treasury (`0xc93c375b…cfce22`) is coordinated with the GVC team for allowlist addition. Once added, the same plain-ERC-20 `transfer()` we already call works end-to-end — no further code changes required. While the addition is pending, the web UI's test-mode bypass + the x402 USDC agent rail continue to demo the full pipeline.
+The wallet pill in the header shows BOTH balances live (VIBESTR on Ethereum + USDC on Base) regardless of which chain MetaMask is currently on — each balance is read via a public RPC for that chain, so the user always sees what they can spend on either rail.
 
-The web UI is single-purpose: VIBESTR only, manual scene/action/mood selection, no toggles or modes. Clean human flow.
+VIBESTR enforces a private recipient allowlist inside `_transfer` — transfers to addresses on the list succeed; transfers to any other recipient revert with `InsufficientAllowance` regardless of sender balance. The vibe-o-matic treasury (`0xc93c375b…cfce22`) is coordinated with the GVC team for allowlist addition. Once added, the VIBESTR rail flips from `SOON` to active with a two-line UI edit in `app/page.tsx` — the server-side `payVibestrSplit` helper, on-chain `verifyPayment`, and the full multi-tx settlement pipeline are already production-ready and waiting. The exact re-enable steps live in [`LAUNCH.md`](./LAUNCH.md#how-to-re-enable-the-vibestr-rail-in-the-ui-once-it-lands). Until then, USDC is the live default for the web UI and the x402 USDC agent rail demos the full payment pipeline.
 
 ### Surface 2 — The x402 agent endpoint (the autonomous AI path)
 External AI agents hit `POST /api/vibeify/x402` with two body params: an image and a free-text intent. Our server-side picker reads the photo + intent and chooses scene/action/mood/size from the curated catalog. The render proceeds, the agent's picks come back in the response (with reasoning), and a $0.69 USDC payment settles on Base — all in one HTTP round-trip with the EIP-3009 signature in the `X-PAYMENT` header.
@@ -77,18 +78,20 @@ Source photo pixels **never reach the image generator**. We use gpt-4o-mini visi
 ### 🎨 Multi-reference Flux 2 pipeline
 Each render sends 7 reference images to Flux: 1 body T-pose template, 4 curated face references (showing different expressions + bearded vs clean-shaven structure), and up to 2 scene-specific backgrounds. The model has visual exemplars of what a GVC character looks like — not just text rules.
 
-### 💸 Two audiences, two rails — and they never overlap on purpose
+### 💸 Two surfaces, two rails — pragmatic today, native-coin ready
 
-| Audience | Surface | Network | Asset | Price |
-|---|---|---|---|---|
-| **GVC humans** | The web UI (vibe-o-matic.com) | Ethereum mainnet | $VIBESTR ERC-20 | 99 VIBESTR → 100% treasury |
-| **Autonomous AI agents** | `POST /api/vibeify/x402` | Base mainnet | USDC | $0.69 |
+| Audience | Surface | Rail today | Rail roadmap |
+|---|---|---|---|
+| **GVC humans** | The web UI (vibe-o-matic.vercel.app) | $0.69 USDC on Base — live, default, one gasless EIP-3009 signature | 99 VIBESTR on Ethereum — `SOON` pill flips on the moment the GVC team adds our treasury to VIBESTR's recipient allowlist |
+| **Autonomous AI agents** | `POST /api/vibeify/x402` | $0.69 USDC on Base — live via Coinbase CDP facilitator | Stays USDC-only — see *why* below |
 
-This split is intentional, not accidental:
+The architecture is deliberate, not accidental:
 
-- **Humans should pay GVC's currency.** Every human render creates buying pressure on $VIBESTR — treasury accumulates, burn destroys, both reinforce the token. Mixing in a USDC option would leak value out of the GVC economy.
-- **AI agents need a protocol-standard currency.** x402 was designed around USDC because that's the stable, widely-supported, EIP-3009-ready stablecoin every facilitator already knows about. VIBESTR isn't in that compatibility set.
-- **Result:** the web UI is a clean VIBESTR-only flow (no rail toggle, no choice paralysis). The agent endpoint at `/api/vibeify/x402` is a separate, machine-callable URL with its own contract documented in [`X402.md`](./X402.md). Two surfaces, two audiences, zero overlap.
+- **The web UI ships with USDC because we can ship it today.** Real users render real images right now, paying real on-chain stablecoin into the GVC treasury, with the full economy flowing — no IOUs, no demo-mode disclaimers, no "coming soon" gating the entire experience. The site is live and earning at the moment a judge opens it.
+- **VIBESTR is one allowlist call away.** Every line of the VIBESTR rail is production-ready: `payVibestrSplit` builds the multi-transfer payment, `verifyPayment` validates the on-chain receipts, the wallet pill already displays a live VIBESTR balance, and the UI re-enable is a two-line edit. The only thing between today and "100% of human renders create on-chain VIBESTR buying pressure" is one transaction from a GVC contract owner. Verification script + re-enable steps in [`LAUNCH.md`](./LAUNCH.md#-pending-vibestr-allowlist-add).
+- **The agent endpoint stays USDC-only on purpose.** x402's facilitator network speaks EIP-3009 + USDC because that's the stablecoin every facilitator can verify and settle across chains. VIBESTR isn't in that compatibility set — and even if it were, autonomous agents don't (and shouldn't have to) hold every niche community token to pay for services. Agents pay protocol currency, that's the universal interface. The agent endpoint at `/api/vibeify/x402` is a separate, machine-callable URL with its own contract documented in [`X402.md`](./X402.md).
+
+**End state:** humans default to VIBESTR (creating buying pressure on the GVC-native token with every render), humans who want frictionless onboarding still have USDC, and agents pay USDC because that's what protocol currency looks like. The treasury accumulates both. Nothing is mutually exclusive.
 
 ### 🤖 First-class agentic interface (the headline feature)
 The `/api/vibeify/x402` endpoint accepts two modes:
