@@ -614,7 +614,7 @@ export default function Home() {
               <h1 className="text-3xl sm:text-5xl font-display font-black text-shimmer leading-none tracking-tight">
                 VIBE-O-MATIC
               </h1>
-              <p className="text-white/40 font-body text-xs sm:text-sm mt-1">
+              <p className="text-white/40 font-body text-sm sm:text-sm mt-1">
                 Drop any image → get it back as a tiny, cinematic Vibetown scene.
               </p>
             </div>
@@ -649,7 +649,7 @@ export default function Home() {
                       : "bg-gvc-green animate-pulse"
                   }`}
                 />
-                <p className="font-body text-xs uppercase tracking-wider text-white/50">
+                <p className="font-body text-sm uppercase tracking-wider text-white/50">
                   {paying
                     ? "Awaiting wallet…"
                     : generating
@@ -661,12 +661,12 @@ export default function Home() {
                 {result && sourceUrl && (
                   <button
                     onClick={() => setShowBefore((s) => !s)}
-                    className="text-white/50 hover:text-gvc-gold text-xs font-body transition-colors"
+                    className="text-white/50 hover:text-gvc-gold text-sm font-body transition-colors"
                   >
                     {showBefore ? "Show after" : "Show before"}
                   </button>
                 )}
-                <p className="text-white/30 font-body text-xs">
+                <p className="text-white/30 font-body text-sm">
                   {sourceLabel || size}
                 </p>
               </div>
@@ -734,20 +734,20 @@ export default function Home() {
                           : "Waiting for wallet…"
                       : "Rendering Vibetown"}
                   </p>
-                  <p className="text-white/40 font-body text-xs">
+                  <p className="text-white/40 font-body text-sm">
                     {paying ? "Approve in your wallet" : "Usually 30–60 seconds"}
                   </p>
                 </div>
               )}
 
               {result && !showBefore && (
-                <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 backdrop-blur px-2.5 py-1 rounded-full text-[11px] font-body uppercase tracking-wider text-gvc-gold border border-gvc-gold/30">
+                <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 backdrop-blur px-2.5 py-1 rounded-full text-xs font-body uppercase tracking-wider text-gvc-gold border border-gvc-gold/30">
                   <span className="w-1.5 h-1.5 rounded-full bg-gvc-gold animate-pulse" />
                   Vibetown v6
                 </div>
               )}
               {showBefore && result && (
-                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur px-2.5 py-1 rounded-full text-[11px] font-body uppercase tracking-wider text-white/70 border border-white/20">
+                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur px-2.5 py-1 rounded-full text-xs font-body uppercase tracking-wider text-white/70 border border-white/20">
                   Original
                 </div>
               )}
@@ -769,17 +769,17 @@ export default function Home() {
                       "VIBESTR rail goes live once the GVC team adds our treasury to the recipient allowlist. Coordinating now."
                     )
                   }
-                  className="px-3 py-1 rounded-full text-xs font-display text-white/40 cursor-not-allowed flex items-center gap-1.5"
+                  className="px-3 py-1 rounded-full text-sm font-display text-white/40 cursor-not-allowed flex items-center gap-1.5"
                 >
                   {TOTAL_VIBESTR.toString()} VIBESTR
-                  <span className="px-1.5 py-px rounded-full bg-pink-accent/20 text-pink-accent text-[10px] uppercase tracking-wider">
+                  <span className="px-1.5 py-px rounded-full bg-pink-accent/20 text-pink-accent text-[11px] uppercase tracking-wider">
                     soon
                   </span>
                 </button>
                 <button
                   onClick={() => setPaymentRail("usdc")}
                   disabled={testMode}
-                  className={`px-3 py-1 rounded-full text-xs font-display transition-all ${
+                  className={`px-3 py-1 rounded-full text-sm font-display transition-all ${
                     paymentRail === "usdc"
                       ? "bg-gvc-gold text-gvc-black"
                       : "text-white/60 hover:text-white"
@@ -790,7 +790,7 @@ export default function Home() {
               </div>
             </div>
             <div
-              className={`mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[11px] font-body transition-opacity ${
+              className={`mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs font-body transition-opacity ${
                 testMode ? "opacity-30" : "text-white/40"
               }`}
             >
@@ -840,7 +840,7 @@ export default function Home() {
               <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/40 overflow-hidden">
                 <button
                   onClick={() => setShowDebug((v) => !v)}
-                  className="w-full px-4 py-2 flex items-center justify-between text-left text-xs font-body text-white/50 hover:text-white/80 transition-colors"
+                  className="w-full px-4 py-2 flex items-center justify-between text-left text-sm font-body text-white/50 hover:text-white/80 transition-colors"
                 >
                   <span className="flex items-center gap-2">
                     <span className="text-gvc-gold/70">{showDebug ? "▾" : "▸"}</span>
@@ -855,7 +855,7 @@ export default function Home() {
                     {lastDescription && (
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <p className="text-[11px] uppercase tracking-wider font-body text-white/40">
+                          <p className="text-xs uppercase tracking-wider font-body text-white/40">
                             Describer output (gpt-4o-mini)
                           </p>
                           <button
@@ -863,12 +863,12 @@ export default function Home() {
                               navigator.clipboard?.writeText(lastDescription);
                               toast.success("Description copied");
                             }}
-                            className="text-[11px] font-body text-white/30 hover:text-gvc-gold"
+                            className="text-xs font-body text-white/30 hover:text-gvc-gold"
                           >
                             copy
                           </button>
                         </div>
-                        <pre className="text-xs font-mono text-white/70 whitespace-pre-wrap leading-snug">
+                        <pre className="text-sm font-mono text-white/70 whitespace-pre-wrap leading-snug">
                           {lastDescription}
                         </pre>
                       </div>
@@ -876,7 +876,7 @@ export default function Home() {
                     {lastPrompt && (
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <p className="text-[11px] uppercase tracking-wider font-body text-white/40">
+                          <p className="text-xs uppercase tracking-wider font-body text-white/40">
                             Render prompt (to gemini-2.5-flash-image)
                           </p>
                           <button
@@ -884,12 +884,12 @@ export default function Home() {
                               navigator.clipboard?.writeText(lastPrompt);
                               toast.success("Prompt copied");
                             }}
-                            className="text-[11px] font-body text-white/30 hover:text-gvc-gold"
+                            className="text-xs font-body text-white/30 hover:text-gvc-gold"
                           >
                             copy
                           </button>
                         </div>
-                        <pre className="text-xs font-mono text-white/70 whitespace-pre-wrap leading-snug">
+                        <pre className="text-sm font-mono text-white/70 whitespace-pre-wrap leading-snug">
                           {lastPrompt}
                         </pre>
                       </div>
@@ -899,83 +899,13 @@ export default function Home() {
               </div>
             )}
 
-            {/* Test-mode panel — server is always willing to serve test mode
-                (bypassAvailable is always true now), but only if the user POSTs
-                the right `bypassPassword`. Default password is "0r4ng3" (the
-                "orange accent" GVC color, in leet). The toggle stays disabled
-                until the typed password matches client-side; the server
-                independently validates on POST. */}
-            {bypassAvailable && (
-              <div
-                className={`mt-3 px-3 py-2 rounded-xl border ${
-                  testMode
-                    ? "bg-pink-accent/10 border-pink-accent/40"
-                    : "bg-black/30 border-white/[0.06]"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-base">🧪</span>
-                    <div className="min-w-0">
-                      <p
-                        className={`font-display text-xs ${
-                          testMode ? "text-pink-accent" : "text-white/70"
-                        }`}
-                      >
-                        Test mode
-                      </p>
-                      <p className="text-[11px] font-body text-white/40 truncate">
-                        {testMode
-                          ? "Free render — no payment. Disable for real renders."
-                          : "Password-gated free renders for the team."}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      // Client doesn't know the actual password — it just
-                      // requires SOMETHING to be typed. The server validates
-                      // on the actual render call and returns 403 if wrong;
-                      // the user sees that as a clear toast and can retry.
-                      if (bypassPassword.length > 0) {
-                        setBypassMode((v) => !v);
-                      } else {
-                        toast.error("Enter the test-mode password first");
-                      }
-                    }}
-                    disabled={bypassPassword.length === 0}
-                    className={`shrink-0 relative w-10 h-5 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                      testMode ? "bg-pink-accent" : "bg-gvc-gray"
-                    }`}
-                    aria-label="Toggle test mode"
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                        testMode ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-                {/* Password input — required to unlock the toggle. Hidden text
-                    so a demo audience can't read it over your shoulder. */}
-                {!testMode && (
-                  <input
-                    type="password"
-                    value={bypassPassword}
-                    onChange={(e) => setBypassPassword(e.target.value)}
-                    placeholder="Password"
-                    className="mt-2 w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/[0.06] text-white text-xs font-body focus:border-pink-accent/40 outline-none"
-                  />
-                )}
-              </div>
-            )}
-
           </motion.section>
 
-          {/* Controls — panels stack at their natural heights. We tried
-              stretching the last panel to match the preview, but that
-              created dead space inside Action & mood. Better to let the
-              right column be naturally shorter than the preview. */}
+          {/* Controls — panels stack at their natural heights. The
+              test-mode panel sits at the bottom of this column so it
+              co-locates with the other render controls and fills the
+              vertical space below Action & mood without forcing flex-1
+              stretching (which created internal dead space). */}
           <motion.aside
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -991,20 +921,20 @@ export default function Home() {
                     alt={sourceLabel}
                     className="w-8 h-8 rounded object-cover border border-white/10"
                   />
-                  <span className="flex-1 text-xs font-body text-gvc-gold truncate">
+                  <span className="flex-1 text-sm font-body text-gvc-gold truncate">
                     {sourceLabel || "Loaded"}
                   </span>
                   <button
                     onClick={clearSource}
                     aria-label="Clear current image"
-                    className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 border border-white/10 text-white/60 text-xs hover:text-pink-accent hover:border-pink-accent/40 transition-all"
+                    className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 border border-white/10 text-white/60 text-sm hover:text-pink-accent hover:border-pink-accent/40 transition-all"
                   >
                     ✕
                   </button>
                 </div>
               )}
               <label className="block">
-                <span className="block text-white/50 font-body text-xs mb-2">
+                <span className="block text-white/50 font-body text-sm mb-2">
                   Upload
                 </span>
                 <input
@@ -1015,11 +945,11 @@ export default function Home() {
                     // Reset value so picking the same file twice still fires onChange.
                     (e.currentTarget as HTMLInputElement).value = "";
                   }}
-                  className="block w-full text-xs text-white/70 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-gvc-gold file:text-gvc-black file:font-body file:font-semibold file:cursor-pointer"
+                  className="block w-full text-sm text-white/70 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-gvc-gold file:text-gvc-black file:font-body file:font-semibold file:cursor-pointer"
                 />
               </label>
               <div className="mt-4">
-                <span className="block text-white/50 font-body text-xs mb-2">
+                <span className="block text-white/50 font-body text-sm mb-2">
                   Or load a GVC token (0–6968)
                 </span>
                 <div className="flex gap-2">
@@ -1054,7 +984,7 @@ export default function Home() {
                         setSceneView("reference");
                         setActiveBgIndex(0);
                       }}
-                      className={`text-xs font-body px-2.5 py-1 rounded-full border transition-all ${
+                      className={`text-sm font-body px-2.5 py-1 rounded-full border transition-all ${
                         active
                           ? "bg-gvc-gold/15 border-gvc-gold/50 text-gvc-gold"
                           : "bg-black/30 border-white/[0.08] text-white/60 hover:border-white/20"
@@ -1072,7 +1002,7 @@ export default function Home() {
                   <div className="flex items-center gap-1 mb-3 p-0.5 bg-black/40 rounded-lg w-fit">
                     <button
                       onClick={() => setSceneView("reference")}
-                      className={`text-[11px] font-body uppercase tracking-wider px-3 py-1 rounded-md transition-all ${
+                      className={`text-xs font-body uppercase tracking-wider px-3 py-1 rounded-md transition-all ${
                         sceneView === "reference"
                           ? "bg-gvc-gold/15 text-gvc-gold"
                           : "text-white/40 hover:text-white/70"
@@ -1082,7 +1012,7 @@ export default function Home() {
                     </button>
                     <button
                       onClick={() => setSceneView("text")}
-                      className={`text-[11px] font-body uppercase tracking-wider px-3 py-1 rounded-md transition-all ${
+                      className={`text-xs font-body uppercase tracking-wider px-3 py-1 rounded-md transition-all ${
                         sceneView === "text"
                           ? "bg-gvc-gold/15 text-gvc-gold"
                           : "text-white/40 hover:text-white/70"
@@ -1107,7 +1037,7 @@ export default function Home() {
                               key={i}
                               onClick={() => setActiveBgIndex(i)}
                               aria-label={`Show scene reference ${i + 1}`}
-                              className={`w-6 h-6 rounded-full text-[11px] font-body font-semibold transition-all ${
+                              className={`w-6 h-6 rounded-full text-xs font-body font-semibold transition-all ${
                                 activeBgIndex === i
                                   ? "bg-gvc-gold text-gvc-black"
                                   : "bg-black/40 border border-white/10 text-white/50 hover:border-gvc-gold/40 hover:text-white/80"
@@ -1148,7 +1078,7 @@ export default function Home() {
             </Panel>
 
             <Panel title="3. Action & mood (optional)">
-              <p className="text-[11px] font-body uppercase tracking-wider text-white/40 mb-1.5">
+              <p className="text-xs font-body uppercase tracking-wider text-white/40 mb-1.5">
                 Action
               </p>
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -1158,7 +1088,7 @@ export default function Home() {
                     <button
                       key={p.label}
                       onClick={() => setAction(active ? "" : p.prompt)}
-                      className={`text-xs font-body px-2.5 py-1 rounded-full border transition-all ${
+                      className={`text-sm font-body px-2.5 py-1 rounded-full border transition-all ${
                         active
                           ? "bg-gvc-gold/15 border-gvc-gold/50 text-gvc-gold"
                           : "bg-black/30 border-white/[0.08] text-white/60 hover:border-white/20"
@@ -1177,7 +1107,7 @@ export default function Home() {
                 className="w-full px-3 py-2 rounded-lg bg-black/60 border border-white/[0.08] text-white text-sm font-body focus:border-gvc-gold/40 outline-none mb-4"
               />
 
-              <p className="text-[11px] font-body uppercase tracking-wider text-white/40 mb-1.5">
+              <p className="text-xs font-body uppercase tracking-wider text-white/40 mb-1.5">
                 Mood
               </p>
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -1187,7 +1117,7 @@ export default function Home() {
                     <button
                       key={p.label}
                       onClick={() => setMood(active ? "" : p.prompt)}
-                      className={`text-xs font-body px-2.5 py-1 rounded-full border transition-all ${
+                      className={`text-sm font-body px-2.5 py-1 rounded-full border transition-all ${
                         active
                           ? "bg-gvc-gold/15 border-gvc-gold/50 text-gvc-gold"
                           : "bg-black/30 border-white/[0.08] text-white/60 hover:border-white/20"
@@ -1218,7 +1148,7 @@ export default function Home() {
                     <button
                       key={s}
                       onClick={() => setSize(s)}
-                      className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-body transition-all ${
+                      className={`flex-1 px-2 py-1.5 rounded-lg text-sm font-body transition-all ${
                         active
                           ? "bg-gvc-gold/15 border border-gvc-gold/40 text-gvc-gold"
                           : "bg-black/30 border border-white/[0.06] text-white/60"
@@ -1230,6 +1160,78 @@ export default function Home() {
                 })}
               </div>
             </Panel>
+
+            {/* Test-mode panel — server is always willing to serve test mode
+                (bypassAvailable is always true now), but only if the user POSTs
+                the right `bypassPassword`. The toggle stays disabled until
+                the typed password is non-empty client-side; the server
+                independently validates on POST and returns 403 if wrong. The
+                password lives ONLY in VIBEIFY_BYPASS_PASSWORD on the server
+                — the client never knows the actual value. */}
+            {bypassAvailable && (
+              <div
+                className={`px-3 py-2 rounded-xl border ${
+                  testMode
+                    ? "bg-pink-accent/10 border-pink-accent/40"
+                    : "bg-black/30 border-white/[0.06]"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base">🧪</span>
+                    <div className="min-w-0">
+                      <p
+                        className={`font-display text-sm ${
+                          testMode ? "text-pink-accent" : "text-white/70"
+                        }`}
+                      >
+                        Test mode
+                      </p>
+                      <p className="text-xs font-body text-white/40 truncate">
+                        {testMode
+                          ? "Free render — no payment. Disable for real renders."
+                          : "Password-gated free renders for the team."}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      // Client doesn't know the actual password — it just
+                      // requires SOMETHING to be typed. The server validates
+                      // on the actual render call and returns 403 if wrong;
+                      // the user sees that as a clear toast and can retry.
+                      if (bypassPassword.length > 0) {
+                        setBypassMode((v) => !v);
+                      } else {
+                        toast.error("Enter the test-mode password first");
+                      }
+                    }}
+                    disabled={bypassPassword.length === 0}
+                    className={`shrink-0 relative w-10 h-5 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                      testMode ? "bg-pink-accent" : "bg-gvc-gray"
+                    }`}
+                    aria-label="Toggle test mode"
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                        testMode ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+                {/* Password input — required to unlock the toggle. Hidden text
+                    so a demo audience can't read it over your shoulder. */}
+                {!testMode && (
+                  <input
+                    type="password"
+                    value={bypassPassword}
+                    onChange={(e) => setBypassPassword(e.target.value)}
+                    placeholder="Password"
+                    className="mt-2 w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/[0.06] text-white text-sm font-body focus:border-pink-accent/40 outline-none"
+                  />
+                )}
+              </div>
+            )}
           </motion.aside>
         </div>
 
@@ -1265,12 +1267,12 @@ export default function Home() {
             className="mt-6 rounded-2xl bg-gvc-dark border border-white/[0.08] p-5"
           >
             <div className="flex items-center justify-between mb-4">
-              <p className="text-white/40 font-body text-xs uppercase tracking-wider">
+              <p className="text-white/40 font-body text-sm uppercase tracking-wider">
                 Your Vibetown gallery
               </p>
               <button
                 onClick={clearHistory}
-                className="text-white/30 hover:text-pink-accent text-xs font-body transition-colors"
+                className="text-white/30 hover:text-pink-accent text-sm font-body transition-colors"
               >
                 Clear history
               </button>
@@ -1299,10 +1301,10 @@ export default function Home() {
                     className="w-full aspect-square object-cover group-hover:opacity-90 transition-opacity"
                   />
                   <div className="p-2">
-                    <p className="font-body text-xs text-white/70 line-clamp-2 leading-snug">
+                    <p className="font-body text-sm text-white/70 line-clamp-2 leading-snug">
                       {g.scene}
                     </p>
-                    <p className="text-[11px] text-white/30 font-body mt-1">
+                    <p className="text-xs text-white/30 font-body mt-1">
                       {new Date(g.ts).toLocaleString([], {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -1376,7 +1378,7 @@ function WalletPill({
     return (
       <button
         onClick={onConnect}
-        className="px-4 py-2 rounded-full bg-pink-accent/20 border border-pink-accent/40 text-pink-accent font-body font-semibold text-xs"
+        className="px-4 py-2 rounded-full bg-pink-accent/20 border border-pink-accent/40 text-pink-accent font-body font-semibold text-sm"
       >
         Switch to Mainnet
       </button>
@@ -1390,13 +1392,13 @@ function WalletPill({
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gvc-dark border border-white/[0.08]">
       <span className="w-1.5 h-1.5 rounded-full bg-gvc-green" />
-      <span className="font-body text-xs text-white/70">{shortAddr(account)}</span>
+      <span className="font-body text-sm text-white/70">{shortAddr(account)}</span>
       <span className="text-white/20">·</span>
-      <span className="font-display text-xs text-gvc-gold">
+      <span className="font-display text-sm text-gvc-gold">
         {balance !== null ? `${formatVibestr(balance)} VIBESTR` : "…"}
       </span>
       <span className="text-white/20">·</span>
-      <span className="font-display text-xs text-gvc-gold">{usdcText}</span>
+      <span className="font-display text-sm text-gvc-gold">{usdcText}</span>
     </div>
   );
 }
@@ -1458,7 +1460,7 @@ node scripts/test-x402-agent.mjs \\
     <div className="rounded-2xl bg-gradient-to-br from-gvc-dark to-black border border-gvc-gold/30 p-6 shadow-[0_0_40px_rgba(255,224,72,0.05)]">
       {/* Header spans the whole width */}
       <div className="flex items-center justify-between gap-2 mb-4">
-        <p className="font-display text-xs uppercase tracking-[0.18em] text-gvc-gold flex items-center gap-1.5">
+        <p className="font-display text-sm uppercase tracking-[0.18em] text-gvc-gold flex items-center gap-1.5">
           <span className="text-base">🤖</span>
           Agent API
         </p>
@@ -1466,7 +1468,7 @@ node scripts/test-x402-agent.mjs \\
           href={`${repoBase}/blob/main/X402.md`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs font-body text-gvc-gold/70 hover:text-gvc-gold transition-colors"
+          className="text-sm font-body text-gvc-gold/70 hover:text-gvc-gold transition-colors"
         >
           Full docs ↗
         </a>
@@ -1476,10 +1478,10 @@ node scripts/test-x402-agent.mjs \\
       <div className="grid md:grid-cols-3 gap-4">
         {/* Column 1 — How it works */}
         <div className="flex flex-col gap-1.5">
-          <p className="text-[10px] font-body uppercase tracking-wider text-white/30">
+          <p className="text-[11px] font-body uppercase tracking-wider text-white/30">
             How it works
           </p>
-          <ol className="space-y-1.5 text-xs font-body text-white/70 leading-snug">
+          <ol className="space-y-1.5 text-sm font-body text-white/70 leading-snug">
             <li className="flex gap-2">
               <span className="text-gvc-gold/70 font-display">1.</span>
               <span>Agent sends a photo + free-text intent</span>
@@ -1497,17 +1499,17 @@ node scripts/test-x402-agent.mjs \\
 
         {/* Column 2 — Endpoint */}
         <div className="flex flex-col gap-1.5">
-          <p className="text-[10px] font-body uppercase tracking-wider text-white/30">
+          <p className="text-[11px] font-body uppercase tracking-wider text-white/30">
             Endpoint
           </p>
           <div className="rounded-lg bg-black/50 border border-white/[0.06] px-3 py-2 flex-1">
             <code className="font-mono text-[12px] text-gvc-gold break-all leading-tight block">
               POST /api/vibeify/x402
             </code>
-            <p className="text-[11px] font-body text-white/40 mt-1.5">
+            <p className="text-xs font-body text-white/40 mt-1.5">
               Base mainnet · x402 / EIP-3009
             </p>
-            <p className="text-[11px] font-body text-white/40">
+            <p className="text-xs font-body text-white/40">
               No API key required
             </p>
           </div>
@@ -1515,7 +1517,7 @@ node scripts/test-x402-agent.mjs \\
 
         {/* Column 3 — Actions */}
         <div className="flex flex-col gap-1.5">
-          <p className="text-[10px] font-body uppercase tracking-wider text-white/30">
+          <p className="text-[11px] font-body uppercase tracking-wider text-white/30">
             Try it
           </p>
           <button
@@ -1524,7 +1526,7 @@ node scripts/test-x402-agent.mjs \\
             className="font-body px-4 py-3 rounded-lg bg-black/40 border border-white/[0.08] text-white/80 hover:border-gvc-gold/40 hover:text-gvc-gold transition-all text-left"
           >
             <span className="block text-sm font-semibold">See the price</span>
-            <span className="block text-xs text-white/40 mt-1">
+            <span className="block text-sm text-white/40 mt-1">
               Discovery curl
             </span>
           </button>
@@ -1534,7 +1536,7 @@ node scripts/test-x402-agent.mjs \\
             className="font-body px-4 py-3 rounded-lg bg-black/40 border border-white/[0.08] text-white/80 hover:border-gvc-gold/40 hover:text-gvc-gold transition-all text-left"
           >
             <span className="block text-sm font-semibold">Run a render</span>
-            <span className="block text-xs text-white/40 mt-1">
+            <span className="block text-sm text-white/40 mt-1">
               Setup + first render script
             </span>
           </button>
@@ -1577,7 +1579,7 @@ function Stat({
 
   const content = (
     <>
-      <p className="text-white/40 font-body text-[11px] uppercase tracking-wider mb-1">
+      <p className="text-white/40 font-body text-xs uppercase tracking-wider mb-1">
         {label}
       </p>
       <p className="font-display text-3xl text-gvc-gold">
