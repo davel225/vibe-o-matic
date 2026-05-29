@@ -27,7 +27,7 @@ It's a working answer to two questions GVC cares about:
 
 1. **It's actually shipping**, not just a demo video. The x402 USDC rail is live on **Base mainnet** for both the web UI (humans) and the agent endpoint, settling real $0.69 USDC payments on-chain per render. The VIBESTR rail is wired and waiting on a whitelisted VIBESTR recipient being put in place.
 2. **The agentic x402 flow is the kind of integration we expect more services to offer in the coming year.** We're not "an API behind Stripe" — we're a service that an autonomous AI agent can discover, agree to a price with, pay for, and consume in one HTTP round-trip. It's the pattern web services will adopt to charge per-call without an API-key economy.
-3. **The OpenSea integration is a love letter to the marketplace** that built this whole NFT ecosystem. Brand-correct neon signage, exact hex codes, baked into one of the canonical scenes.
+3. **The OpenSea integration runs both visual and onchain.** Brand-correct neon signage with exact hex codes baked into the Neon Street scene, AND vibe-o-matic is now an active listing in **OpenSea's own ERC-8257 agent tool registry** (toolId 39 on Base mainnet). Visual cameo + onchain registry presence + x402 payment rail — three layers of OpenSea-ecosystem alignment.
 4. **The future is honestly costed and scoped.** We're not handwaving — [`FUTURE.md`](./FUTURE.md) is a proof-of-concept roadmap with concrete integration steps, due-diligence checklist, and what changes per file.
 5. **Built with Claude Code**. Every line of code in this repo was paired between a human and Claude. The development log itself is a demonstration of human + AI agent collaboration — the same pattern we're enabling for *consumers* of vibe-o-matic.
 
@@ -67,10 +67,10 @@ The architecture is deliberate, not accidental:
 
 **End state:** humans default to VIBESTR (creating buying pressure on the GVC-native token with every render), humans who want frictionless onboarding still have USDC, and agents pay USDC because that's what protocol currency looks like. Nothing is mutually exclusive.
 
-### 🎯 OpenSea brand integration
+### 🎯 OpenSea brand integration (visual cameo + on-chain listing)
 The Neon Street scene includes a custom-built neon OpenSea logo as one of the storefront signs, using OpenSea's exact brand hex codes from their style guide (Sea Blue #2081E2, Marina Blue #15B2E5, Aqua #2BCDE4, Fog #E5E8EB). Every render at that scene puts the OpenSea mark in the background — a small visual nod to a community-defining marketplace.
 
-The connection runs deeper than visual cameo, too: vibe-o-matic is textbook material for **[ERC-8257](https://www.8257.ai/)**, OpenSea's onchain agent tool registry built on Base — designed to be *"`403` to x402's `402`."* Same parent ecosystem, same chain, same agent audience. Listing the tool there is the natural next discovery channel; concrete sketch in [`FUTURE.md`](./FUTURE.md#-erc-8257-tool-registry-listing).
+The connection runs deeper than visual cameo, too. **vibe-o-matic is now listed in OpenSea's own onchain agent tool registry — [ERC-8257](https://www.8257.ai/) toolId 39 on Base mainnet.** OpenSea's positioning for the registry is literally "`403` to x402's `402`" — an onchain discovery layer purpose-built to pair with x402-payable services like ours. Tool manifest verified at [`https://vibe-o-matic.vercel.app/.well-known/ai-tool/vibeify.json`](https://vibe-o-matic.vercel.app/.well-known/ai-tool/vibeify.json), `keccak256(JCS(manifest))` committed on-chain, payout recipient = the same treasury that receives x402 USDC settlements today. Listing-maintenance details and the full integration sketch live in [`FUTURE.md`](./FUTURE.md#-erc-8257-tool-registry-listing).
 
 ---
 

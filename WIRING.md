@@ -100,6 +100,16 @@ After those swaps, the production deploy is fully yours: every dollar of every r
 | Coinbase CDP x402 facilitator | `https://api.cdp.coinbase.com/platform/v2/x402` | — (off-chain service) |
 | Public Ethereum RPC | `https://ethereum-rpc.publicnode.com` | Used by `lib/wallet.ts` for VIBESTR balance reads + payment verification |
 | BFL Flux endpoint | `https://api.bfl.ai/v1/flux-2-pro` | — |
+| ERC-8257 ToolRegistry | `0x265BB2DBFC0A8165C9A1941Eb1372F349baD2cf1` | Base mainnet (8453) — our `toolId` is **39**, owned by the treasury wallet |
+
+### On-chain assets owned by the project
+
+| What | Address / id | Owner / controller |
+|---|---|---|
+| ERC-8257 tool listing | `toolId 39` on registry `0x265BB2…2cf1` | Treasury wallet `0xc93c375b…cfce22` (as on-chain `creator`) — can `updateToolMetadata`, `setAccessPredicate`, `deregisterTool` |
+| Vibeify access predicate | `0xd8C7646AEEA84a6908D5fc310AEE72DE69FA003A` (Base) | Stateless permissive contract — no admin functions; can be swapped via the registry's `setAccessPredicate(39, newAddr)` from the treasury |
+
+Listing-maintenance procedures (how to update the manifest, swap predicates, deregister) live in [`FUTURE.md`](./FUTURE.md#-erc-8257-tool-registry-listing--shipped-toolid-39).
 
 ### Hosting & code
 

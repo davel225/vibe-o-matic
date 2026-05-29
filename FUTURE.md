@@ -86,46 +86,62 @@ The hackathon build ships humans a working rail (USDC) and demonstrates the VIBE
 
 ---
 
-## 🔗 ERC-8257 tool registry listing
+## 🔗 ERC-8257 tool registry listing — ✅ shipped (toolId 39)
 
-[**ERC-8257**](https://www.8257.ai/) ([ProjectOpenSea](https://github.com/ProjectOpenSea)) is OpenSea's onchain registry for AI agent tools — a discovery layer specifically designed to complement x402. Their own positioning calls it *"`403` to x402's `402`."* Same contract on Ethereum + Base mainnet: `0x265BB2DBFC0A8165C9A1941Eb1372F349baD2cf1`.
+[**ERC-8257**](https://www.8257.ai/) ([ProjectOpenSea](https://github.com/ProjectOpenSea)) is OpenSea's onchain registry for AI agent tools — a discovery layer specifically designed to complement x402. Their own positioning calls it *"`403` to x402's `402`."*
 
-vibe-o-matic is textbook ERC-8257 material: an already-payable HTTP endpoint targeting autonomous AI agents on Base, with predictable per-call economics. Listing it in the registry makes vibe-o-matic discoverable to every agent that already speaks ERC-8257 — the same agent population x402 was designed for.
+vibe-o-matic is now **listed in the registry as toolId 39** on Base mainnet. The original author registered during the hackathon, with the treasury wallet recorded as the on-chain `creator` so post-handoff GVC controls all metadata updates, predicate swaps, and (if ever needed) deregistration via the same wallet that already receives x402 settlements.
 
-### Integration sketch (GVC-led, post-hackathon)
+### Listing facts (verify any time on Basescan)
 
-Whoever inherits the project would need to:
+| Field | Value |
+|---|---|
+| Registry contract | `0x265BB2DBFC0A8165C9A1941Eb1372F349baD2cf1` (Base mainnet) |
+| `toolId` | `39` |
+| `creator` | `0xc93c375b022f0e707d211090d904f3266ccfce22` (treasury) |
+| `metadataURI` | `https://vibe-o-matic.vercel.app/.well-known/ai-tool/vibeify.json` |
+| `manifestHash` | `0x61fe50ead3f814c1422aff796dac13c6c08c35545f65c2b331650848f1124826` |
+| `accessPredicate` | `0xd8C7646AEEA84a6908D5fc310AEE72DE69FA003A` (permissive — defers gating to HTTP/x402 layer) |
+| Registration tx | `0xf31230cb851c0071a323341890050450d69badc77d48c5b2697e90d299ee5147` |
 
-1. **Author the tool manifest.** A JSON descriptor served at `/.well-known/ai-tool/vibeify.json` per the ERC-8257 spec. Describes the endpoint, the access predicate, and the agent-facing schema.
-2. **Deploy an `IAccessPredicate` contract on Base.** Three functions:
-   - `hasAccess(address agent) → bool`
-   - `getRequirements() → bytes` (declares the access requirements machine-readably)
-   - `name() → string`
+Tool manifest source of truth: [`lib/erc8257-manifest.ts`](./lib/erc8257-manifest.ts). Hash compute + simulation script: [`scripts/erc8257-hash.mjs`](./scripts/erc8257-hash.mjs). Predicate contract source: [`contracts/VibeifyAccessPredicate.sol`](./contracts/VibeifyAccessPredicate.sol).
 
-   The predicate's logic is custom — for vibe-o-matic, the simplest path is a permissive `hasAccess() → true` that defers gating to the existing HTTP-layer x402 verification. A more sophisticated predicate could verify an on-chain x402 payment proof directly, eliminating the redundant HTTP step.
-3. **Register the tool** via the OpenSea SDK: `npx @opensea/tool-sdk register --metadata <manifest-url> --network base`. One-time tx; costs Base mainnet gas.
-4. **Add server-side SIWE header acceptance.** ERC-8257 callers send a SIWE (Sign-In-With-Ethereum) `Authorization` header. The existing `/api/vibeify/x402` route would learn to accept either the current `X-PAYMENT` (x402) header OR a SIWE header (ERC-8257), running the same render pipeline in both cases.
+### Listing maintenance (GVC team, post-handoff)
 
-Estimated effort: **~2-3 working days** for a developer comfortable with Solidity + TypeScript + Base mainnet.
+Anything the `creator` (treasury wallet) can do on the registry contract:
 
-### Why this is a strong follow-up
+**Update the manifest** (e.g. price change, new tags, new tool name):
+
+1. Edit `lib/erc8257-manifest.ts` in the repo
+2. Re-run `node scripts/erc8257-hash.mjs` — prints the new `keccak256(JCS(manifest))`
+3. Push to deploy the new served bytes at the well-known URL
+4. From the treasury wallet, call `updateToolMetadata(39, newURI, newHash)` on `0x265BB2DBFC0A8165C9A1941Eb1372F349baD2cf1`. URI is the same well-known URL; `newHash` is the value printed by the script.
+
+**Swap the access predicate** (e.g. add NFT-holder gating later):
+
+1. Deploy a new `IAccessPredicate` implementation on Base
+2. From the treasury wallet, call `setAccessPredicate(39, newPredicateAddress)` on the registry
+
+**Deregister entirely** (irreversible — tool ID can never be re-registered with the same creator):
+
+- From the treasury wallet, call `deregisterTool(39)`
+
+### Why this listing matters narratively
 
 The narrative connection is unusually clean:
 
-- vibe-o-matic already ships an **OpenSea brand cameo** in the Neon Street scene
-- vibe-o-matic already runs **on Base** with x402 USDC settlement
-- vibe-o-matic is **already callable by autonomous AI agents**
+- vibe-o-matic ships an **OpenSea brand cameo** in the Neon Street scene
+- vibe-o-matic runs **on Base** with x402 USDC settlement
+- vibe-o-matic is **callable by autonomous AI agents**
+- vibe-o-matic is **listed in OpenSea's own onchain agent tool registry**
 
-Listing in ERC-8257 closes the loop: same parent ecosystem (OpenSea), same chain (Base), same audience (autonomous AI agents). The project becomes a real example of "x402-payable + ERC-8257-discoverable" — the canonical pattern these two protocols were designed to enable together.
+Same parent ecosystem, same chain, same audience. The project is a real working example of "x402-payable + ERC-8257-discoverable" — the canonical pattern these two protocols were designed to enable together.
 
-### Due diligence checklist (pre-integration)
+### Possible follow-ups (not blocking)
 
-- [ ] Confirm ERC-8257's manifest schema (full JSON shape) from [the spec page](https://www.8257.ai/spec)
-- [ ] Decide between the simple-permissive predicate (defer to HTTP-layer x402) vs an x402-aware on-chain predicate (verify payment receipts before the HTTP call)
-- [ ] Confirm the SIWE header format ERC-8257 expects, and the latency budget for the per-request predicate re-check (currently estimated at ~100-200ms via standard Base RPC)
-- [ ] Verify there are no registry-side fees on registration or per-call (none documented today)
-- [ ] Decide whether to keep `/api/vibeify/x402` dual-protocol (both headers accepted) or fork a second route at `/api/vibeify/8257` for cleaner separation
-- [ ] Choose a canonical tool name and reserve any related identifiers before registration
+- [ ] Add a `--submit` mode to `scripts/erc8257-hash.mjs` that takes a key (via existing credential conventions from `test-x402-agent.mjs`) and signs the registry update directly — for now, updates are submitted via Basescan's Write Contract UI.
+- [ ] Harden the predicate: replace the permissive `hasAccess() → true` with one that verifies an x402 payment receipt on-chain, eliminating the HTTP-layer re-check. Adds latency (~100-200ms RPC) so likely not worth it until per-call volume warrants it.
+- [ ] Deduplicate the manifest definition (currently inlined in both `lib/erc8257-manifest.ts` and `scripts/erc8257-hash.mjs`) — the hash parity check catches drift but a single source of truth would be cleaner.
 
 ---
 
