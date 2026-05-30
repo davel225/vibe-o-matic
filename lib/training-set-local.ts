@@ -1,0 +1,130 @@
+"use client";
+
+/**
+ * Browser-local training set for the FEEDBACK-V1 program (Phase 1b).
+ *
+ * Spec: FEEDBACK-V1.md § What gets persisted, and where.
+ *
+ * Privacy floor: only renders where sourceKind === "gvc-token" are
+ * stored here. Photo-source renders show the feedback widget for UX
+ * symmetry but their data NEVER enters this store or the (future)
+ * upload path. The privacy guarantee is enforced at every entry point
+ * — addEntry() rejects non-gvc-token entries; setEntryFeedback() only
+ * updates entries that are already present (so a photo render can't
+ * leak via "I rated this" either).
+ *
+ * Storage budget: each entry contains the full PNG output as a data
+ * URL (~500 KB – 1 MB). localStorage cap is typically ~5–10 MB across
+ * the origin, shared with the existing history feature. We cap at
+ * MAX_ENTRIES (50) with FIFO eviction so the worst case stays bounded.
+ * If localStorage refuses our write (quota / private-mode), we fail
+ * silently — the user just doesn't accumulate a training set.
+ *
+ * Nothing here ever sends data over the network. That's Phase 1c's job.
+ */
+
+export type TrainingEntry = {
+  /** Stable local id for the render, e.g. "r_abc123". */
+  id: string;
+  /** Unix epoch ms when the render completed. */
+  ts: number;
+  /** Privacy floor: only GVC-token renders end up here. */
+  sourceKind: "gvc-token";
+  /** Numeric GVC token id rendered (0..6968). */
+  sourceTokenId: number;
+  /** Full prompt sent to Flux for the render — provides the caption for
+   *  LoRA training when paired with the output image. */
+  prompt: string;
+  /** Optional gpt-4o-mini source description (empty for gvc-token path). */
+  description?: string;
+  /** data:image/png;base64,... — the rendered PNG. */
+  outputImage: string;
+  /** User's verdict: up / down / not yet rated. */
+  feedback: "up" | "down" | null;
+};
+
+const STORAGE_KEY = "vibe-o-matic:training-set";
+const MAX_ENTRIES = 50;
+
+function safeRead(): TrainingEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (e) =>
+        e &&
+        typeof e === "object" &&
+        e.sourceKind === "gvc-token" &&
+        typeof e.id === "string"
+    ) as TrainingEntry[];
+  } catch {
+    return [];
+  }
+}
+
+function safeWrite(set: TrainingEntry[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(set));
+  } catch {
+    // Quota exceeded / private mode / disabled — silently no-op.
+    // The user just doesn't accumulate a training set this session.
+  }
+}
+
+/** Read the current training set from localStorage. */
+export function loadTrainingSet(): TrainingEntry[] {
+  return safeRead();
+}
+
+/**
+ * Add a new entry. Returns the updated set. Rejects non-gvc-token
+ * entries — the privacy-floor enforcement point.
+ */
+export function addEntry(entry: TrainingEntry): TrainingEntry[] {
+  if (entry.sourceKind !== "gvc-token") return safeRead();
+  const current = safeRead();
+  // Newest at front; cap at MAX_ENTRIES with FIFO eviction.
+  const next = [entry, ...current.filter((e) => e.id !== entry.id)].slice(
+    0,
+    MAX_ENTRIES
+  );
+  safeWrite(next);
+  return next;
+}
+
+/**
+ * Update the feedback verdict for an existing entry. If no entry with
+ * `id` exists (e.g. it was evicted, or never added in the first place
+ * because the render was a photo), this is a no-op.
+ */
+export function setEntryFeedback(
+  id: string,
+  feedback: "up" | "down" | null
+): TrainingEntry[] {
+  const current = safeRead();
+  const idx = current.findIndex((e) => e.id === id);
+  if (idx === -1) return current;
+  const next = [...current];
+  next[idx] = { ...next[idx], feedback };
+  safeWrite(next);
+  return next;
+}
+
+/** Wipe the entire local training set. */
+export function clearTrainingSet(): TrainingEntry[] {
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+  }
+  return [];
+}
+
+/** Count entries that have a feedback verdict set (Phase 1c upload trigger). */
+export function ratedCount(set: TrainingEntry[]): number {
+  return set.filter((e) => e.feedback !== null).length;
+}

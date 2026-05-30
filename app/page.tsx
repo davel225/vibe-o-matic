@@ -13,6 +13,14 @@ import {
   MOOD_PRESETS,
 } from "@/lib/presets";
 import {
+  addEntry as addTrainingEntry,
+  clearTrainingSet,
+  loadTrainingSet,
+  ratedCount as countRated,
+  setEntryFeedback,
+  type TrainingEntry,
+} from "@/lib/training-set-local";
+import {
   CHAIN_ID,
   SPLIT_RECIPIENTS,
   TOTAL_VIBESTR,
@@ -118,6 +126,12 @@ export default function Home() {
    *                  exactly). See lib/vibeify-render.ts → generateVibetown.
    */
   const [sourceKind, setSourceKind] = useState<"photo" | "gvc-token">("photo");
+  /**
+   * Numeric GVC token id when sourceKind === "gvc-token". Used as a
+   * stable label for the training-set entry produced from this render
+   * (Phase 1b — see lib/training-set-local.ts).
+   */
+  const [sourceTokenId, setSourceTokenId] = useState<number | null>(null);
 
   // ── Prompt inputs ────────────────────────────────────────
   const [scene, setScene] = useState<string>(SCENE_PRESETS[0].scene);
@@ -207,12 +221,27 @@ export default function Home() {
   const [stats, setStats] = useState<CollectionStats | null>(null);
   const [history, setHistory] = useState<Generation[]>([]);
 
-  // ── Load persisted history + GVC stats + bypass flag ─────
+  // ── Phase 1b training set (browser-local; GVC-source renders only) ──
+  // The set lives entirely in this user's browser localStorage. We hydrate
+  // on mount and only push back to storage via the helper functions in
+  // lib/training-set-local.ts (privacy-floor enforced there).
+  const [trainingSet, setTrainingSet] = useState<TrainingEntry[]>([]);
+  /**
+   * The id of the entry corresponding to the CURRENTLY displayed result.
+   * Powers the sticky-state on the 👍/👎 buttons under the preview so
+   * the user can see their last verdict and toggle it without re-rendering.
+   * `null` when the displayed result didn't get persisted (photo source,
+   * or before localStorage write completed).
+   */
+  const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
+
+  // ── Load persisted history + GVC stats + bypass flag + training set ─
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) setHistory(JSON.parse(raw));
     } catch {}
+    setTrainingSet(loadTrainingSet());
     getStats().then(setStats).catch(() => {});
     fetch("/api/vibeify")
       .then((r) => r.json())
@@ -355,14 +384,17 @@ export default function Home() {
     url: string,
     label: string,
     remote: boolean,
-    kind: "photo" | "gvc-token" = "photo"
+    kind: "photo" | "gvc-token" = "photo",
+    tokenId: number | null = null
   ) {
     setSourceUrl(url);
     setSourceLabel(label);
     setSourceIsRemote(remote);
     setSourceKind(kind);
+    setSourceTokenId(kind === "gvc-token" ? tokenId : null);
     setResult(null);
     setShowBefore(false);
+    setCurrentEntryId(null);
   }
 
   // Compress any locally-uploaded image to ≤~220KB before storing as the
@@ -402,9 +434,11 @@ export default function Home() {
     setSourceLabel("");
     setSourceIsRemote(false);
     setSourceKind("photo");
+    setSourceTokenId(null);
     setResult(null);
     setShowBefore(false);
     setTokenInput("");
+    setCurrentEntryId(null);
   }
 
   function onDrop(e: React.DragEvent) {
@@ -429,7 +463,8 @@ export default function Home() {
         ipfsToHttp(token.image),
         token.name || `GVC #${id}`,
         true,
-        "gvc-token"
+        "gvc-token",
+        id
       );
       toast.success(`Loaded ${token.name || `GVC #${id}`}`);
     } catch {
@@ -616,6 +651,28 @@ export default function Home() {
         description:
           typeof data.description === "string" ? data.description : undefined,
       };
+
+      // Phase 1b: persist GVC-token renders to the browser-local training set.
+      // Privacy floor enforced in lib/training-set-local.ts (addEntry rejects
+      // anything where sourceKind !== "gvc-token"), but we ALSO gate here so
+      // we don't do the work for photo renders.
+      if (sourceKind === "gvc-token" && sourceTokenId !== null) {
+        const entryId = `r_${rec.id}`;
+        const newSet = addTrainingEntry({
+          id: entryId,
+          ts: rec.ts,
+          sourceKind: "gvc-token",
+          sourceTokenId,
+          prompt: rec.prompt ?? "",
+          description: rec.description,
+          outputImage: data.image,
+          feedback: null,
+        });
+        setTrainingSet(newSet);
+        setCurrentEntryId(entryId);
+      } else {
+        setCurrentEntryId(null);
+      }
       const next = [rec, ...history].slice(0, 24);
       setHistory(next);
       try {
@@ -657,6 +714,19 @@ export default function Home() {
     } finally {
       setGenerating(false);
     }
+  }
+
+  /**
+   * Handle a 👍/👎 click on the current render's feedback widget.
+   * Sticky toggle: clicking the SAME verdict twice clears it back to null.
+   * Only fires for GVC-token sources (currentEntryId is null otherwise).
+   */
+  function handleFeedback(verdict: "up" | "down") {
+    if (!currentEntryId) return;
+    const current = trainingSet.find((e) => e.id === currentEntryId);
+    const nextVerdict = current?.feedback === verdict ? null : verdict;
+    const newSet = setEntryFeedback(currentEntryId, nextVerdict);
+    setTrainingSet(newSet);
   }
 
   function downloadResult() {
@@ -1130,6 +1200,27 @@ export default function Home() {
               </button>
             </div>
 
+            {/* Phase 1b: feedback widget — 👍/👎 under each render.
+                Only persists for GVC-token sources (currentEntryId
+                is null otherwise). For photo renders, we keep the
+                widget hidden + a small disclosure so users know why
+                their photo rating isn't being captured (privacy floor). */}
+            {result && currentEntryId && (
+              <FeedbackWidget
+                currentVerdict={
+                  trainingSet.find((e) => e.id === currentEntryId)?.feedback ??
+                  null
+                }
+                onVote={handleFeedback}
+              />
+            )}
+            {result && !currentEntryId && sourceKind === "photo" && (
+              <p className="mt-3 text-center text-xs font-body text-white/30 italic">
+                Photo renders aren&apos;t saved — only GVC token renders
+                contribute to the LoRA training set.
+              </p>
+            )}
+
             {/* Debug panel — prompt + describer output for the last render */}
             {(lastPrompt || lastDescription) && (
               <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/40 overflow-hidden">
@@ -1553,6 +1644,35 @@ export default function Home() {
           </div>
         </motion.section>
 
+        {/* ── Phase 1b: training contributions panel ─────────
+            Appears once the user has rated 3+ GVC-token renders.
+            Shows their count, thumbnail strip, and a forward-looking
+            note about the (Phase 1c) voluntary upload button. */}
+        {countRated(trainingSet) >= 3 && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-4"
+          >
+            <ContributionsPanel
+              entries={trainingSet}
+              ratedCount={countRated(trainingSet)}
+              onClear={() => {
+                if (
+                  typeof window !== "undefined" &&
+                  window.confirm(
+                    "Clear all locally-saved training contributions? This cannot be undone."
+                  )
+                ) {
+                  setTrainingSet(clearTrainingSet());
+                  setCurrentEntryId(null);
+                }
+              }}
+            />
+          </motion.section>
+        )}
+
         {/* ── History ────────────────────────────────────── */}
         {history.length > 0 && (
           <motion.section
@@ -1643,6 +1763,143 @@ export default function Home() {
 // ─────────────────────────────────────────────────────────────
 // Small components
 // ─────────────────────────────────────────────────────────────
+
+/**
+ * 👍 / 👎 feedback widget for the FEEDBACK-V1 training-set program.
+ * Sticky state: shows the current verdict, clicking the same vote twice
+ * clears it back to no-verdict. Only rendered for GVC-token sources —
+ * the parent gates visibility based on currentEntryId !== null.
+ */
+function FeedbackWidget({
+  currentVerdict,
+  onVote,
+}: {
+  currentVerdict: "up" | "down" | null;
+  onVote: (verdict: "up" | "down") => void;
+}) {
+  return (
+    <div className="mt-3 flex items-center justify-center gap-3">
+      <span className="text-xs font-body text-white/40 uppercase tracking-wider">
+        Rate this render
+      </span>
+      <button
+        onClick={() => onVote("up")}
+        aria-label="Mark this render as good"
+        className={`px-3 py-1.5 rounded-full text-base transition-all border ${
+          currentVerdict === "up"
+            ? "bg-gvc-green/20 border-gvc-green/50 shadow-[0_0_12px_rgba(46,255,46,0.15)]"
+            : "bg-black/30 border-white/[0.08] hover:border-gvc-green/40 hover:bg-gvc-green/[0.08]"
+        }`}
+      >
+        👍
+      </button>
+      <button
+        onClick={() => onVote("down")}
+        aria-label="Mark this render as off-spec"
+        className={`px-3 py-1.5 rounded-full text-base transition-all border ${
+          currentVerdict === "down"
+            ? "bg-pink-accent/20 border-pink-accent/50 shadow-[0_0_12px_rgba(255,107,157,0.15)]"
+            : "bg-black/30 border-white/[0.08] hover:border-pink-accent/40 hover:bg-pink-accent/[0.08]"
+        }`}
+      >
+        👎
+      </button>
+    </div>
+  );
+}
+
+/**
+ * "Your contributions" panel — surfaces once the user has rated 3+
+ * GVC-token renders. Shows the count, a thumbnail strip, and a (Phase
+ * 1c, not yet wired) upload button placeholder.
+ */
+function ContributionsPanel({
+  entries,
+  ratedCount,
+  onClear,
+}: {
+  entries: TrainingEntry[];
+  ratedCount: number;
+  onClear: () => void;
+}) {
+  const recent = entries.slice(0, 8);
+  return (
+    <div className="rounded-2xl bg-gradient-to-br from-gvc-dark to-black border border-gvc-gold/30 p-6 shadow-[0_0_40px_rgba(255,224,72,0.05)]">
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-base">📁</span>
+          <p className="font-display text-sm uppercase tracking-[0.18em] text-gvc-gold">
+            Your training contributions
+          </p>
+        </div>
+        <button
+          onClick={onClear}
+          className="text-white/30 hover:text-pink-accent text-xs font-body transition-colors"
+        >
+          Clear
+        </button>
+      </div>
+
+      <div className="flex items-center gap-4 mb-4">
+        <div className="flex flex-col">
+          <p className="font-display text-3xl text-gvc-gold tracking-wide tabular-nums">
+            {ratedCount}
+          </p>
+          <p className="text-[11px] font-body uppercase tracking-wider text-white/40">
+            rated renders
+          </p>
+        </div>
+        <div className="h-12 w-px bg-white/10" />
+        <div className="flex flex-col">
+          <p className="font-display text-3xl text-white/80 tracking-wide tabular-nums">
+            {entries.length}
+          </p>
+          <p className="text-[11px] font-body uppercase tracking-wider text-white/40">
+            saved locally
+          </p>
+        </div>
+      </div>
+
+      {recent.length > 0 && (
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 mb-4">
+          {recent.map((e) => (
+            <div
+              key={e.id}
+              className="relative aspect-square rounded-lg overflow-hidden border border-white/[0.08]"
+              title={`Token #${e.sourceTokenId}${
+                e.feedback === "up"
+                  ? " · 👍"
+                  : e.feedback === "down"
+                  ? " · 👎"
+                  : ""
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={e.outputImage}
+                alt={`Token #${e.sourceTokenId}`}
+                className="w-full h-full object-cover"
+              />
+              {e.feedback && (
+                <span className="absolute bottom-1 right-1 text-xs">
+                  {e.feedback === "up" ? "👍" : "👎"}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="text-xs font-body text-white/40 leading-relaxed">
+        Your renders live in this browser only.{" "}
+        <span className="text-white/60">Coming next:</span> a one-click button
+        to voluntarily contribute your rated renders to the LoRA training
+        dataset. Until then, nothing leaves your machine — the data here is
+        purely for your own review.
+      </p>
+    </div>
+  );
+}
 
 function Panel({
   title,
