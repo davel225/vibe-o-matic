@@ -26,6 +26,11 @@ import {
   readSourceKind,
   resolveVibeifyParams,
 } from "@/lib/vibeify-render";
+import { checkCommunityEligibility } from "@/lib/community-eligibility";
+import {
+  decrementCounter,
+  readCounter,
+} from "@/lib/free-render-counter";
 import { facilitator } from "@coinbase/x402";
 
 export const runtime = "nodejs";
@@ -114,6 +119,127 @@ export async function POST(req: NextRequest) {
     form = await req.formData();
   } catch {
     return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+  }
+
+  // ── 1.5. Community-free path (FEEDBACK-V1.md § Eligibility) ──
+  // If the caller asked for a free render via `freeRender=1 + wallet=0x…`,
+  // verify on-chain eligibility + that the program counter still has
+  // headroom, and skip the entire x402 payment flow. Falls through to
+  // the regular payment path if anything fails, so the caller's only
+  // downside on a failed free attempt is a 402 + a clear error message.
+  //
+  // Threat model note: server independently verifies the wallet's
+  // on-chain eligibility — a malicious client can't spoof their way
+  // through by sending an unowned address. The only theoretical abuse
+  // (someone using a qualifying address they don't own) is bounded by
+  // the public 200-render cap; total damage is ≤ ~$10 per refill cycle.
+  const wantsFreeRender = form.get("freeRender") === "1";
+  if (wantsFreeRender) {
+    const walletRaw = (form.get("wallet") as string | null)?.trim() ?? "";
+    if (!/^0x[a-fA-F0-9]{40}$/.test(walletRaw)) {
+      return NextResponse.json(
+        { error: "Free-render path requires a `wallet` form field (0x…)." },
+        { status: 400 }
+      );
+    }
+    const wallet = walletRaw.toLowerCase() as `0x${string}`;
+
+    // Counter state first — cheaper than the RPC + saves a no-op render
+    // path if the program is exhausted or KV isn't connected.
+    const counterState = await readCounter();
+    if (!counterState) {
+      return NextResponse.json(
+        {
+          error:
+            "Community free-render program is not yet available (counter not provisioned).",
+        },
+        { status: 503 }
+      );
+    }
+    if (counterState.remaining <= 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Community free-render program exhausted for now. Try paying via x402 or ping @economist for a reload.",
+          remaining: counterState.remaining,
+        },
+        { status: 429 }
+      );
+    }
+
+    // Eligibility — fail closed on RPC errors.
+    const eligibility = await checkCommunityEligibility(wallet);
+    if (!eligibility.isMember) {
+      return NextResponse.json(
+        {
+          error:
+            "Wallet doesn't meet community-eligibility (≥1 GVC NFT OR ≥69,000 VIBESTR on Ethereum mainnet).",
+          qualifier: eligibility.qualifier,
+          gvcCount: eligibility.gvcCount.toString(),
+          vibestrBalance: eligibility.vibestrBalance.toString(),
+        },
+        { status: 403 }
+      );
+    }
+
+    // ── Run the render (same code path as the paid case) ──
+    const img = await prepareImage(form);
+    if (img.kind === "err") return img.response;
+
+    let resolved;
+    try {
+      const openaiKey = process.env.OPENAI_API_KEY;
+      if (!openaiKey) throw new Error("OPENAI_API_KEY not configured");
+      resolved = await resolveVibeifyParams(
+        form,
+        { buffer: img.buffer, mime: img.mime },
+        openaiKey
+      );
+    } catch (e) {
+      return NextResponse.json(
+        { error: `Param resolution failed: ${(e as Error).message}` },
+        { status: 502 }
+      );
+    }
+
+    const response = await generateVibetown({
+      ...img,
+      scene: resolved.scene,
+      action: resolved.action,
+      mood: resolved.mood,
+      size: resolved.size,
+      sceneBgFilenames: resolved.sceneBgFilenames,
+      sourceKind: readSourceKind(form),
+      extra: {
+        paymentRail: "community-free",
+        agentMode: form.get("agentMode") === "1",
+        qualifier: eligibility.qualifier,
+        ...(resolved.agentPicks ? { agentPicks: resolved.agentPicks } : {}),
+      },
+    });
+
+    if (response.status >= 400) {
+      // Render failed; counter NOT decremented (we charge nothing).
+      return response;
+    }
+
+    // Decrement the counter AFTER the render succeeds (FEEDBACK-V1.md
+    // risk note: at-most-one-off-budget render is acceptable if the
+    // DECR itself fails after a successful render).
+    const newRemaining = await decrementCounter();
+    if (newRemaining !== null) {
+      response.headers.set(
+        "X-FREE-RENDER",
+        JSON.stringify({
+          remaining: newRemaining,
+          qualifier: eligibility.qualifier,
+        })
+      );
+    }
+    console.log(
+      `[vibeify-x402] community-free render granted to ${wallet} via ${eligibility.qualifier}; remaining=${newRemaining}`
+    );
+    return response;
   }
 
   // ── 2. Payment header present? ──

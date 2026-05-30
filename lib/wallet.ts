@@ -136,6 +136,36 @@ export async function getVibestrBalance(addr: `0x${string}`): Promise<bigint> {
   }) as Promise<bigint>;
 }
 
+/**
+ * GVC NFT contract (Good Vibes Club — Citizen of Vibetown ERC-721) on
+ * Ethereum mainnet. Used by the community-eligibility check for the
+ * free-render program: any wallet holding ≥1 GVC token qualifies.
+ *
+ * Per CLAUDE.md / WIRING.md, this address is the canonical GVC NFT and
+ * is treated as a read-only reference — never change it.
+ */
+export const GVC_NFT_ADDRESS =
+  "0xB8Ea78fcaCEf50d41375E44E6814ebbA36Bb33c4" as const;
+
+const gvcNftAbi = parseAbi([
+  "function balanceOf(address) view returns (uint256)",
+]);
+
+/**
+ * Count of GVC NFTs (Citizen of Vibetown) held by `addr` on Ethereum
+ * mainnet. Used by the free-render community gate (FEEDBACK-V1.md §
+ * Eligibility) — server-side reads only, via the same public RPC used
+ * by `getVibestrBalance`.
+ */
+export async function getGvcNftBalance(addr: `0x${string}`): Promise<bigint> {
+  return publicClient.readContract({
+    address: GVC_NFT_ADDRESS,
+    abi: gvcNftAbi,
+    functionName: "balanceOf",
+    args: [addr],
+  }) as Promise<bigint>;
+}
+
 export type PayProgress = {
   index: number;
   total: number;
