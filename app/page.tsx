@@ -1721,12 +1721,12 @@ function WalletPill({
         <span className="w-1.5 h-1.5 rounded-full bg-gvc-green" />
         <span className="font-body text-sm text-white/70">{shortAddr(account)}</span>
       </div>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col items-start leading-tight">
           <span className="font-body text-[10px] uppercase tracking-wider text-white/40">
             VIBESTR
           </span>
-          <span className="font-display text-base text-gvc-gold">
+          <span className="font-display text-base text-gvc-gold tracking-wide tabular-nums">
             {vibestrText}
           </span>
         </div>
@@ -1734,7 +1734,7 @@ function WalletPill({
           <span className="font-body text-[10px] uppercase tracking-wider text-white/40">
             USDC (Base)
           </span>
-          <span className="font-display text-base text-gvc-gold">
+          <span className="font-display text-base text-gvc-gold tracking-wide tabular-nums">
             {usdcText}
           </span>
         </div>
