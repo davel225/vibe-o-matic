@@ -1696,10 +1696,15 @@ function WalletPill({
       </button>
     );
   }
-  // USDC has 6 decimals — quick inline format (avoids an extra import).
+  // USDC has 6 decimals. Use viem's formatUnits + a Number-based decimal
+  // formatter so the result is guaranteed to be e.g. "$3.25" or "$1,234.56"
+  // — never "$325" or "$3250000" if a bigint→Number conversion went wonky.
   const usdcText =
     usdcBalance !== null
-      ? `$${(Number(usdcBalance) / 1_000_000).toFixed(2)}`
+      ? `$${Number(formatUnits(usdcBalance, 6)).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`
       : "…";
   const vibestrText =
     balance !== null ? formatVibestr(balance) : "…";

@@ -20,13 +20,24 @@
 import { createPublicClient, http, parseAbi } from "viem";
 import { mainnet } from "viem/chains";
 import { RPC_URL, VIBESTR_ADDRESS, VIBESTR_DECIMALS } from "./payment-config";
-import { GVC_NFT_ADDRESS } from "./wallet";
 
 const VIBESTR_THRESHOLD_WHOLE = 69_000n;
 const VIBESTR_THRESHOLD_RAW =
   VIBESTR_THRESHOLD_WHOLE * 10n ** BigInt(VIBESTR_DECIMALS);
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes per FEEDBACK-V1.md
+
+/**
+ * GVC NFT address inlined here (not imported from lib/wallet.ts) to
+ * avoid a subtle "use client" cross-module-import gotcha: Next.js may
+ * stub constants imported from a "use client" module when consumed in
+ * server code, leaving the address as undefined → readContract throws
+ * → we fall into the catch and return zeros for every wallet. Spent
+ * way too long debugging that exact symptom — keep this duplicated to
+ * the value in lib/wallet.ts.
+ */
+const GVC_NFT_ADDRESS_SERVER =
+  "0xB8Ea78fcaCEf50d41375E44E6814ebbA36Bb33c4" as const;
 
 export type Eligibility = {
   /** True iff the wallet meets at least one of the dual conditions. */
@@ -73,19 +84,47 @@ export async function checkCommunityEligibility(
   }
 
   try {
-    const [gvcCount, vibestrBalance] = await Promise.all([
-      ethClient.readContract({
-        address: GVC_NFT_ADDRESS,
+    // Read both balances in parallel. Surfacing each error path
+    // separately so we can tell from logs which contract / RPC is
+    // failing — the original "either-fails-fall-through" pattern hid
+    // the real issue.
+    const gvcRead = ethClient
+      .readContract({
+        address: GVC_NFT_ADDRESS_SERVER,
         abi: erc20Abi, // balanceOf is interface-compatible across 721 + 20
         functionName: "balanceOf",
         args: [wallet],
-      }) as Promise<bigint>,
-      ethClient.readContract({
+      })
+      .then((v) => v as bigint)
+      .catch((e: unknown) => {
+        console.error(
+          `[community-eligibility] GVC balanceOf failed for ${wallet} on ${GVC_NFT_ADDRESS_SERVER}: ${
+            (e as Error).message
+          }`
+        );
+        throw e;
+      });
+
+    const vibestrRead = ethClient
+      .readContract({
         address: VIBESTR_ADDRESS,
         abi: erc20Abi,
         functionName: "balanceOf",
         args: [wallet],
-      }) as Promise<bigint>,
+      })
+      .then((v) => v as bigint)
+      .catch((e: unknown) => {
+        console.error(
+          `[community-eligibility] VIBESTR balanceOf failed for ${wallet} on ${VIBESTR_ADDRESS}: ${
+            (e as Error).message
+          }`
+        );
+        throw e;
+      });
+
+    const [gvcCount, vibestrBalance] = await Promise.all([
+      gvcRead,
+      vibestrRead,
     ]);
 
     const gvcQualifies = gvcCount >= 1n;
@@ -107,6 +146,9 @@ export async function checkCommunityEligibility(
       vibestrWhole: vibestrBalance / 10n ** BigInt(VIBESTR_DECIMALS),
     };
 
+    console.log(
+      `[community-eligibility] ${wallet} → gvc=${gvcCount} vibestr=${result.vibestrWhole} → ${result.qualifier} (isMember=${result.isMember})`
+    );
     cache.set(key, { result, ts: Date.now() });
     return result;
   } catch (e) {
