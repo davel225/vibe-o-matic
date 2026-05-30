@@ -717,15 +717,25 @@ export default function Home() {
   }
 
   /**
+   * Resolve which training-set entry the current display corresponds to.
+   * Falls back to the most-recent GVC-token entry if currentEntryId is
+   * null for any reason (e.g. race condition after an async render +
+   * state update). This keeps the feedback widget functional in edge
+   * cases where the React state lifecycle didn't latch cleanly.
+   */
+  const currentEntry = currentEntryId
+    ? trainingSet.find((e) => e.id === currentEntryId)
+    : trainingSet[0]; // newest is at the front; see lib/training-set-local.ts
+
+  /**
    * Handle a 👍/👎 click on the current render's feedback widget.
    * Sticky toggle: clicking the SAME verdict twice clears it back to null.
-   * Only fires for GVC-token sources (currentEntryId is null otherwise).
    */
   function handleFeedback(verdict: "up" | "down") {
-    if (!currentEntryId) return;
-    const current = trainingSet.find((e) => e.id === currentEntryId);
-    const nextVerdict = current?.feedback === verdict ? null : verdict;
-    const newSet = setEntryFeedback(currentEntryId, nextVerdict);
+    const target = currentEntry?.id;
+    if (!target) return;
+    const nextVerdict = currentEntry?.feedback === verdict ? null : verdict;
+    const newSet = setEntryFeedback(target, nextVerdict);
     setTrainingSet(newSet);
   }
 
@@ -1201,20 +1211,19 @@ export default function Home() {
             </div>
 
             {/* Phase 1b: feedback widget — 👍/👎 under each render.
-                Only persists for GVC-token sources (currentEntryId
-                is null otherwise). For photo renders, we keep the
-                widget hidden + a small disclosure so users know why
-                their photo rating isn't being captured (privacy floor). */}
-            {result && currentEntryId && (
+                Shows ANY time there's a rendered result so the user
+                always sees the feedback affordance — photo-source
+                renders get a clear "not saved" disclosure inline
+                rather than silently hiding the widget (privacy floor
+                still holds: photo renders never persist, but we want
+                the UI to explain that, not just vanish). */}
+            {result && sourceKind === "gvc-token" && (
               <FeedbackWidget
-                currentVerdict={
-                  trainingSet.find((e) => e.id === currentEntryId)?.feedback ??
-                  null
-                }
+                currentVerdict={currentEntry?.feedback ?? null}
                 onVote={handleFeedback}
               />
             )}
-            {result && !currentEntryId && sourceKind === "photo" && (
+            {result && sourceKind === "photo" && (
               <p className="mt-3 text-center text-xs font-body text-white/30 italic">
                 Photo renders aren&apos;t saved — only GVC token renders
                 contribute to the LoRA training set.
