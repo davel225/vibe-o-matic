@@ -2,34 +2,55 @@
  * Atomic counter for the free-render program (FEEDBACK-V1.md § The 200-
  * render counter).
  *
- * Backed by Vercel KV (Upstash Redis under the hood). Three operations:
- *   - read(): returns { remaining, refillCount } for the public endpoint
- *   - decrement(): atomic DECR after a successful free render
- *   - refill(by): admin-only INCR, exposed via /api/admin/refill
+ * Backed by Upstash Redis (REST API). Three operations:
+ *   - readCounter(): returns { remaining, refillCount } for the public endpoint
+ *   - decrementCounter(): atomic DECR after a successful free render
+ *   - refillCounter(by): admin-only INCRBY, exposed via /api/admin/refill
  *
- * Graceful degrade: if KV is not provisioned yet (no env vars set), all
- * three operations return `null` / refuse to act. The route handlers
+ * Env var detection:
+ *   We accept either of the two naming schemes Vercel injects depending on
+ *   which marketplace integration version provisioned the Redis instance:
+ *     - KV_REST_API_URL + KV_REST_API_TOKEN          (legacy Vercel KV pattern)
+ *     - UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN  (current Upstash pattern)
+ *   Either pair works; we read whichever is set.
+ *
+ * Graceful degrade: if NEITHER pair is set (Redis not provisioned yet),
+ * all three operations return null / refuse to act. The route handlers
  * interpret null as "counter unavailable" and turn the free-render
- * surface off until KV is connected. This lets the code ship + deploy
- * before Vercel KV is created in the dashboard; the moment the env vars
- * land, the counter starts working with zero code changes.
+ * surface off until provisioning lands. Lets the code ship + deploy
+ * before Redis is created in the dashboard; the moment env vars land,
+ * the counter starts working with zero code changes.
  */
 
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
 
 const REMAINING_KEY = "vibeify:free-renders:remaining";
 const REFILL_COUNT_KEY = "vibeify:free-renders:refill-count";
 
 /**
- * Detect whether Vercel KV is provisioned. The @vercel/kv client lazily
- * reads KV_REST_API_URL + KV_REST_API_TOKEN at call time and throws if
- * they're missing — we want to detect that upfront and return null so
- * the route handlers can degrade cleanly.
+ * Resolve Upstash Redis credentials from either env-var naming scheme.
+ * Returns null if neither pair is present.
  */
-function kvAvailable(): boolean {
-  return !!(
-    process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN
-  );
+function getRedisCreds(): { url: string; token: string } | null {
+  const url =
+    process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token =
+    process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  return { url, token };
+}
+
+/**
+ * Build a cached Redis client. Returns null if creds aren't set so the
+ * caller can degrade without exception throws.
+ */
+let cachedClient: Redis | null = null;
+function client(): Redis | null {
+  if (cachedClient) return cachedClient;
+  const creds = getRedisCreds();
+  if (!creds) return null;
+  cachedClient = new Redis({ url: creds.url, token: creds.token });
+  return cachedClient;
 }
 
 export type CounterState = {
@@ -40,15 +61,16 @@ export type CounterState = {
 };
 
 /**
- * Read the public counter state. Returns null if KV is not provisioned
- * (route handlers should interpret this as "free-render program off").
+ * Read the public counter state. Returns null if Redis is not
+ * provisioned (route handlers interpret this as "free-render program off").
  */
 export async function readCounter(): Promise<CounterState | null> {
-  if (!kvAvailable()) return null;
+  const c = client();
+  if (!c) return null;
   try {
     const [remaining, refillCount] = await Promise.all([
-      kv.get<number>(REMAINING_KEY),
-      kv.get<number>(REFILL_COUNT_KEY),
+      c.get<number>(REMAINING_KEY),
+      c.get<number>(REFILL_COUNT_KEY),
     ]);
     return {
       remaining: typeof remaining === "number" ? remaining : 0,
@@ -65,15 +87,16 @@ export async function readCounter(): Promise<CounterState | null> {
 
 /**
  * Atomically decrement the counter. Returns the NEW value of remaining
- * after the decrement, or null if KV is unavailable / decrement failed.
+ * after the decrement, or null if Redis is unavailable / decrement failed.
  *
  * The route handler MUST call this AFTER the render succeeds — if it
  * fails before render, the counter would burn off-budget renders.
  */
 export async function decrementCounter(): Promise<number | null> {
-  if (!kvAvailable()) return null;
+  const c = client();
+  if (!c) return null;
   try {
-    const newValue = await kv.decr(REMAINING_KEY);
+    const newValue = await c.decr(REMAINING_KEY);
     return typeof newValue === "number" ? newValue : null;
   } catch (e) {
     console.error(
@@ -95,12 +118,13 @@ export async function decrementCounter(): Promise<number | null> {
 export async function refillCounter(
   by: number
 ): Promise<CounterState | null> {
-  if (!kvAvailable()) return null;
+  const c = client();
+  if (!c) return null;
   if (by <= 0 || !Number.isInteger(by)) return null;
   try {
     const [remaining, refillCount] = await Promise.all([
-      kv.incrby(REMAINING_KEY, by),
-      kv.incr(REFILL_COUNT_KEY),
+      c.incrby(REMAINING_KEY, by),
+      c.incr(REFILL_COUNT_KEY),
     ]);
     return {
       remaining: typeof remaining === "number" ? remaining : 0,
@@ -116,7 +140,7 @@ export async function refillCounter(
 }
 
 /**
- * Whether the free-render program is "open" — KV provisioned AND
+ * Whether the free-render program is "open" — Redis provisioned AND
  * remaining > 0. Convenience for the render route's branching.
  */
 export async function isFreeRenderProgramOpen(): Promise<boolean> {
