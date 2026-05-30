@@ -179,6 +179,7 @@ export default function Home() {
   //   - `freeCounter`: the public 200-render counter — visible to ALL
   //     visitors regardless of wallet status (per FEEDBACK-V1.md spec).
   const [community, setCommunity] = useState<{
+    status: "pending" | "ok" | "error";
     isMember: boolean;
     qualifier: "gvc-nft" | "vibestr" | "both" | "none";
     gvcCount: number;
@@ -285,21 +286,45 @@ export default function Home() {
       setCommunity(null);
       return;
     }
+    // Surface a "pending" state immediately so the UI knows the check is
+    // in flight; switches to ok or error once the server responds.
+    setCommunity({
+      status: "pending",
+      isMember: false,
+      qualifier: "none",
+      gvcCount: 0,
+      vibestrWhole: 0,
+    });
     fetch(`/api/community/eligibility?wallet=${account}`)
       .then((r) => r.json())
       .then((d) => {
         if (typeof d?.isMember === "boolean") {
           setCommunity({
+            status: "ok",
             isMember: d.isMember,
             qualifier: d.qualifier,
             gvcCount: Number(d.gvcCount ?? 0),
             vibestrWhole: Number(d.vibestrWhole ?? 0),
           });
         } else {
-          setCommunity(null);
+          setCommunity({
+            status: "error",
+            isMember: false,
+            qualifier: "none",
+            gvcCount: 0,
+            vibestrWhole: 0,
+          });
         }
       })
-      .catch(() => setCommunity(null));
+      .catch(() =>
+        setCommunity({
+          status: "error",
+          isMember: false,
+          qualifier: "none",
+          gvcCount: 0,
+          vibestrWhole: 0,
+        })
+      );
   }, [account]);
 
   // ── Public free-render counter (visible to everyone) ─────
@@ -895,20 +920,30 @@ export default function Home() {
               )}
             </div>
 
-            {/* Community-free program (FEEDBACK-V1.md) — three elements:
-                  (1) public counter visible to everyone, always shown when
-                      the program is available
-                  (2) community-member pill when a qualifying wallet is
-                      connected
-                  (3) X-reload button when the counter is low or zero
-                These sit BETWEEN the preview and the payment-rail toggle so
-                the user reads the free-render context BEFORE choosing a
-                payment path. */}
+            {/* Community-free program (FEEDBACK-V1.md). A prominent card
+                replacing the prior tiny pill — sits between the preview
+                and the payment-rail toggle so users read the free-render
+                context BEFORE choosing a payment path.
+
+                Always visible when the program is provisioned. When a
+                wallet is connected, also surfaces the per-wallet
+                eligibility status (loading / eligible / not eligible)
+                so the user can SEE why they do or don't see the free
+                option. */}
             {freeCounter?.available && (
-              <div className="mt-4 flex flex-col items-center gap-1.5">
-                <div className="inline-flex items-center gap-2 text-xs font-body text-white/60">
+              <div
+                className={`mt-4 rounded-2xl border-2 p-4 transition-all ${
+                  freeCounter.remaining > 20
+                    ? "bg-gvc-gold/[0.08] border-gvc-gold/40 shadow-[0_0_24px_rgba(255,224,72,0.15)]"
+                    : freeCounter.remaining > 0
+                    ? "bg-orange-accent/10 border-orange-accent/40"
+                    : "bg-pink-accent/10 border-pink-accent/40"
+                }`}
+              >
+                {/* Big public counter */}
+                <div className="flex items-center justify-center gap-3">
                   <span
-                    className={`w-1.5 h-1.5 rounded-full ${
+                    className={`w-3 h-3 rounded-full ${
                       freeCounter.remaining > 20
                         ? "bg-gvc-green animate-pulse"
                         : freeCounter.remaining > 0
@@ -917,57 +952,98 @@ export default function Home() {
                     }`}
                   />
                   {freeCounter.remaining > 0 ? (
-                    <span>
-                      <span className="font-display text-gvc-gold">
+                    <p className="font-display text-xl text-white">
+                      <span className="text-3xl text-gvc-gold">
                         {freeCounter.remaining}
                       </span>{" "}
-                      free community renders left
-                    </span>
+                      <span className="text-white/70 text-base">
+                        / 200 free community renders left
+                      </span>
+                    </p>
                   ) : (
-                    <span className="text-pink-accent font-display">
+                    <p className="font-display text-xl text-pink-accent">
                       Free tier exhausted — ping for a reload
-                    </span>
+                    </p>
                   )}
                 </div>
 
-                {community?.isMember && freeCounter.remaining > 0 && (
-                  <label className="inline-flex items-center gap-2 text-xs font-body text-white/70 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={useFreeRender}
-                      onChange={(e) => setUseFreeRender(e.target.checked)}
-                      className="accent-gvc-gold"
-                    />
-                    <span>
-                      Community member{" "}
-                      <span className="text-gvc-gold">✓</span> · use free
-                      render{" "}
-                      <span className="text-white/30">
-                        (
-                        {community.qualifier === "gvc-nft"
-                          ? `${community.gvcCount} GVC NFT${
-                              community.gvcCount === 1 ? "" : "s"
-                            }`
-                          : community.qualifier === "vibestr"
-                          ? `${community.vibestrWhole.toLocaleString()} VIBESTR`
-                          : `${community.gvcCount} GVC + ${community.vibestrWhole.toLocaleString()} VIBESTR`}
-                        )
-                      </span>
-                    </span>
-                  </label>
+                {/* Connected-wallet eligibility status — always visible when
+                    a wallet is connected so the user can see what the server
+                    thinks of their wallet, even if they're not eligible. */}
+                {account && (
+                  <div className="mt-3 pt-3 border-t border-white/[0.08] text-center">
+                    {community?.status === "pending" && (
+                      <p className="text-sm font-body text-white/40">
+                        Checking community eligibility…
+                      </p>
+                    )}
+
+                    {community?.status === "ok" &&
+                      community.isMember &&
+                      freeCounter.remaining > 0 && (
+                        <label className="inline-flex items-center gap-2.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={useFreeRender}
+                            onChange={(e) =>
+                              setUseFreeRender(e.target.checked)
+                            }
+                            className="w-4 h-4 accent-gvc-gold"
+                          />
+                          <span className="font-body text-sm text-white">
+                            <span className="font-display text-gvc-gold">
+                              Community member ✓
+                            </span>{" "}
+                            — use free render{" "}
+                            <span className="text-white/50">
+                              (qualified via{" "}
+                              {community.qualifier === "gvc-nft"
+                                ? `${community.gvcCount} GVC NFT${
+                                    community.gvcCount === 1 ? "" : "s"
+                                  }`
+                                : community.qualifier === "vibestr"
+                                ? `${community.vibestrWhole.toLocaleString()} VIBESTR`
+                                : `${community.gvcCount} GVC + ${community.vibestrWhole.toLocaleString()} VIBESTR`}
+                              )
+                            </span>
+                          </span>
+                        </label>
+                      )}
+
+                    {community?.status === "ok" && !community.isMember && (
+                      <p className="text-sm font-body text-white/50">
+                        Wallet not eligible for free renders ·{" "}
+                        <span className="text-white/40">
+                          have {community.gvcCount} GVC NFT
+                          {community.gvcCount === 1 ? "" : "s"} ·{" "}
+                          {community.vibestrWhole.toLocaleString()} VIBESTR
+                          (need ≥1 GVC OR ≥69,000 VIBESTR)
+                        </span>
+                      </p>
+                    )}
+
+                    {community?.status === "error" && (
+                      <p className="text-sm font-body text-pink-accent">
+                        Could not check eligibility — try refreshing
+                      </p>
+                    )}
+                  </div>
                 )}
 
+                {/* X-reload button — shows at low counter regardless of wallet */}
                 {freeCounter.remaining <= 20 && (
-                  <a
-                    href={`https://x.com/intent/tweet?text=${encodeURIComponent(
-                      `Hey @economist — the @GoodVibesClub vibe-o-matic free tier is on ${freeCounter.remaining} / 200 renders. Reload incoming? 🙏 https://vibe-o-matic.vercel.app`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-body text-white/60 hover:text-gvc-gold transition-colors inline-flex items-center gap-1.5"
-                  >
-                    🐦 Ping @economist on X for a reload
-                  </a>
+                  <div className="mt-3 pt-3 border-t border-white/[0.08] text-center">
+                    <a
+                      href={`https://x.com/intent/tweet?text=${encodeURIComponent(
+                        `Hey @economist — the @GoodVibesClub vibe-o-matic free tier is on ${freeCounter.remaining} / 200 renders. Reload incoming? 🙏 https://vibe-o-matic.vercel.app`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm font-body font-semibold text-pink-accent hover:text-gvc-gold transition-colors"
+                    >
+                      🐦 Ping @economist on X for a reload
+                    </a>
+                  </div>
                 )}
               </div>
             )}
