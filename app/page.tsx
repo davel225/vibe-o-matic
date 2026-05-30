@@ -16,6 +16,8 @@ import {
   addEntry as addTrainingEntry,
   clearTrainingSet,
   loadTrainingSet,
+  markUploaded,
+  pendingUploadCount,
   ratedCount as countRated,
   setEntryFeedback,
   type TrainingEntry,
@@ -234,6 +236,8 @@ export default function Home() {
    * or before localStorage write completed).
    */
   const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
+  /** True while a /api/training-set/submit POST is in flight. */
+  const [uploadingTrainingSet, setUploadingTrainingSet] = useState(false);
 
   // ── Load persisted history + GVC stats + bypass flag + training set ─
   useEffect(() => {
@@ -667,6 +671,7 @@ export default function Home() {
           description: rec.description,
           outputImage: data.image,
           feedback: null,
+          uploadedAt: null,
         });
         setTrainingSet(newSet);
         setCurrentEntryId(entryId);
@@ -737,6 +742,64 @@ export default function Home() {
     const nextVerdict = currentEntry?.feedback === verdict ? null : verdict;
     const newSet = setEntryFeedback(target, nextVerdict);
     setTrainingSet(newSet);
+  }
+
+  /**
+   * Voluntarily contribute rated GVC-token renders to the LoRA training
+   * dataset (FEEDBACK-V1.md Phase 1c). Sends all entries that have a
+   * feedback verdict AND haven't been uploaded yet. On success, marks
+   * those entries with uploadedAt locally so the user doesn't see them
+   * in the next batch.
+   *
+   * No wallet signature — per the v1 spec we keep contribution friction
+   * minimal. Server-side validation enforces the gvc-token privacy
+   * floor + per-batch shape checks.
+   */
+  async function uploadTrainingContributions() {
+    if (!account) {
+      toast.error("Connect a wallet first — uploads are attributed by address.");
+      return;
+    }
+    const pending = trainingSet.filter(
+      (e) => e.feedback !== null && e.uploadedAt === null
+    );
+    if (pending.length === 0) {
+      toast("Nothing new to upload — every rated render is already in the dataset.");
+      return;
+    }
+    setUploadingTrainingSet(true);
+    const uploadToast = toast.loading(
+      `Uploading ${pending.length} render${pending.length === 1 ? "" : "s"}…`
+    );
+    try {
+      const res = await fetch("/api/training-set/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ wallet: account, entries: pending }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      const uploadedIds: string[] = Array.isArray(data.uploadedIds)
+        ? data.uploadedIds
+        : pending.map((e) => e.id);
+      const newSet = markUploaded(uploadedIds);
+      setTrainingSet(newSet);
+      toast.success(
+        `Contributed ${data.accepted} render${
+          data.accepted === 1 ? "" : "s"
+        } 🙏 — total in dataset: ${data.totalEntries}`,
+        { id: uploadToast }
+      );
+    } catch (e) {
+      toast.error(
+        `Upload failed: ${(e as Error).message}`,
+        { id: uploadToast }
+      );
+    } finally {
+      setUploadingTrainingSet(false);
+    }
   }
 
   function downloadResult() {
@@ -1667,6 +1730,13 @@ export default function Home() {
             <ContributionsPanel
               entries={trainingSet}
               ratedCount={countRated(trainingSet)}
+              pendingUpload={pendingUploadCount(trainingSet)}
+              uploadedCount={
+                trainingSet.filter((e) => e.uploadedAt !== null).length
+              }
+              uploading={uploadingTrainingSet}
+              walletConnected={!!account}
+              onUpload={uploadTrainingContributions}
               onClear={() => {
                 if (
                   typeof window !== "undefined" &&
@@ -1825,13 +1895,24 @@ function FeedbackWidget({
 function ContributionsPanel({
   entries,
   ratedCount,
+  pendingUpload,
+  uploadedCount,
+  uploading,
+  walletConnected,
+  onUpload,
   onClear,
 }: {
   entries: TrainingEntry[];
   ratedCount: number;
+  pendingUpload: number;
+  uploadedCount: number;
+  uploading: boolean;
+  walletConnected: boolean;
+  onUpload: () => void;
   onClear: () => void;
 }) {
   const recent = entries.slice(0, 8);
+  const uploadDisabled = pendingUpload === 0 || uploading || !walletConnected;
   return (
     <div className="rounded-2xl bg-gradient-to-br from-gvc-dark to-black border border-gvc-gold/30 p-6 shadow-[0_0_40px_rgba(255,224,72,0.05)]">
       <div className="flex items-center justify-between gap-2 mb-4">
@@ -1849,7 +1930,7 @@ function ContributionsPanel({
         </button>
       </div>
 
-      <div className="flex items-center gap-4 mb-4">
+      <div className="flex items-center gap-4 mb-4 flex-wrap">
         <div className="flex flex-col">
           <p className="font-display text-3xl text-gvc-gold tracking-wide tabular-nums">
             {ratedCount}
@@ -1861,10 +1942,23 @@ function ContributionsPanel({
         <div className="h-12 w-px bg-white/10" />
         <div className="flex flex-col">
           <p className="font-display text-3xl text-white/80 tracking-wide tabular-nums">
-            {entries.length}
+            {uploadedCount}
           </p>
           <p className="text-[11px] font-body uppercase tracking-wider text-white/40">
-            saved locally
+            already uploaded
+          </p>
+        </div>
+        <div className="h-12 w-px bg-white/10" />
+        <div className="flex flex-col">
+          <p
+            className={`font-display text-3xl tracking-wide tabular-nums ${
+              pendingUpload > 0 ? "text-orange-accent" : "text-white/40"
+            }`}
+          >
+            {pendingUpload}
+          </p>
+          <p className="text-[11px] font-body uppercase tracking-wider text-white/40">
+            ready to upload
           </p>
         </div>
       </div>
@@ -1874,14 +1968,18 @@ function ContributionsPanel({
           {recent.map((e) => (
             <div
               key={e.id}
-              className="relative aspect-square rounded-lg overflow-hidden border border-white/[0.08]"
+              className={`relative aspect-square rounded-lg overflow-hidden border ${
+                e.uploadedAt !== null
+                  ? "border-gvc-green/40"
+                  : "border-white/[0.08]"
+              }`}
               title={`Token #${e.sourceTokenId}${
                 e.feedback === "up"
                   ? " · 👍"
                   : e.feedback === "down"
                   ? " · 👎"
                   : ""
-              }`}
+              }${e.uploadedAt !== null ? " · uploaded" : ""}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -1894,18 +1992,42 @@ function ContributionsPanel({
                   {e.feedback === "up" ? "👍" : "👎"}
                 </span>
               )}
+              {e.uploadedAt !== null && (
+                <span className="absolute top-1 left-1 text-[10px] bg-gvc-green/90 text-gvc-black font-display rounded px-1">
+                  ↑
+                </span>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      <p className="text-xs font-body text-white/40 leading-relaxed">
-        Your renders live in this browser only.{" "}
-        <span className="text-white/60">Coming next:</span> a one-click button
-        to voluntarily contribute your rated renders to the LoRA training
-        dataset. Until then, nothing leaves your machine — the data here is
-        purely for your own review.
-      </p>
+      <div className="flex flex-col gap-3">
+        <button
+          onClick={onUpload}
+          disabled={uploadDisabled}
+          className={`w-full px-4 py-3 rounded-xl font-display font-bold text-sm transition-all ${
+            uploadDisabled
+              ? "bg-gvc-gray/30 border border-white/[0.06] text-white/30 cursor-not-allowed"
+              : "bg-gvc-gold text-gvc-black hover:shadow-[0_0_24px_rgba(255,224,72,0.4)]"
+          }`}
+        >
+          {uploading
+            ? "Uploading…"
+            : !walletConnected
+            ? "Connect wallet to upload"
+            : pendingUpload === 0
+            ? "All rated renders uploaded ✓"
+            : `📤 Upload ${pendingUpload} render${
+                pendingUpload === 1 ? "" : "s"
+              } for LoRA training`}
+        </button>
+        <p className="text-xs font-body text-white/40 leading-relaxed text-center">
+          Voluntary. Only rated GVC-token renders upload. Nothing else leaves
+          your browser. Your renders contribute to a future GVC LoRA fine-tune
+          that closes the stochastic-artifact gap. 🐢
+        </p>
+      </div>
     </div>
   );
 }

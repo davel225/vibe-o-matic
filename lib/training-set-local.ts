@@ -41,6 +41,13 @@ export type TrainingEntry = {
   outputImage: string;
   /** User's verdict: up / down / not yet rated. */
   feedback: "up" | "down" | null;
+  /**
+   * Unix epoch ms when this entry was successfully POSTed to the
+   * training-set contribution endpoint. null = not yet contributed.
+   * Used by the ContributionsPanel to compute "X new entries to upload"
+   * so users don't waste bandwidth re-uploading the same data.
+   */
+  uploadedAt: number | null;
 };
 
 const STORAGE_KEY = "vibe-o-matic:training-set";
@@ -53,13 +60,19 @@ function safeRead(): TrainingEntry[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (e) =>
-        e &&
-        typeof e === "object" &&
-        e.sourceKind === "gvc-token" &&
-        typeof e.id === "string"
-    ) as TrainingEntry[];
+    return parsed
+      .filter(
+        (e) =>
+          e &&
+          typeof e === "object" &&
+          e.sourceKind === "gvc-token" &&
+          typeof e.id === "string"
+      )
+      .map((e) => ({
+        // Backfill uploadedAt for pre-Phase-1c entries that wouldn't have it.
+        uploadedAt: null as number | null,
+        ...e,
+      })) as TrainingEntry[];
   } catch {
     return [];
   }
@@ -112,6 +125,29 @@ export function setEntryFeedback(
   next[idx] = { ...next[idx], feedback };
   safeWrite(next);
   return next;
+}
+
+/**
+ * Mark all entries with the given ids as uploaded (sets uploadedAt to
+ * `now`). Returns the updated set. Used by the Phase 1c contribution
+ * flow once /api/training-set/submit returns success — prevents the
+ * user from being prompted to re-upload entries they already submitted.
+ */
+export function markUploaded(ids: string[]): TrainingEntry[] {
+  if (!ids.length) return safeRead();
+  const lookup = new Set(ids);
+  const now = Date.now();
+  const next = safeRead().map((e) =>
+    lookup.has(e.id) ? { ...e, uploadedAt: now } : e
+  );
+  safeWrite(next);
+  return next;
+}
+
+/** Count entries that have been rated AND not yet uploaded (Phase 1c). */
+export function pendingUploadCount(set: TrainingEntry[]): number {
+  return set.filter((e) => e.feedback !== null && e.uploadedAt === null)
+    .length;
 }
 
 /** Wipe the entire local training set. */

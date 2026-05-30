@@ -12,6 +12,7 @@
     "@coinbase/x402": "^2.1.0",
     "@google/genai": "^2.6.0",
     "@upstash/redis": "^1.38.0",
+    "@vercel/blob": "^2.4.0",
     "canonicalize": "^3.0.0",
     "framer-motion": "^11.0.0",
     "lucide-react": "^0.344.0",
